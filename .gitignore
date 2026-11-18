@@ -1,0 +1,36 @@
+# Java / Maven / Gradle
+target/
+build/
+.gradle/
+*.class
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Android
+*.apk
+*.aab
+local.properties
+.cxx/
+captures/
+
+# Bí mật và môi trường: KHÔNG commit
+.env
+*.pem
+*.key
+application-local.yml
+application-secret.yml
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
+
+# Dữ liệu chạy local
+mosquitto/data/
+mosquitto/log/

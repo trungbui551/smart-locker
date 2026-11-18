@@ -1,0 +1,26 @@
+# Chỉ dùng cho phát triển trên máy local.
+services:
+  postgres:
+    image: postgres:16
+    container_name: locker-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-locker}
+      POSTGRES_USER: ${POSTGRES_USER:-locker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-locker}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: locker-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqttdata:/mosquitto/data
+
+volumes:
+  pgdata:
+  mqttdata:

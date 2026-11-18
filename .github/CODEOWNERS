@@ -1,0 +1,7 @@
+# Thay @user bằng tên GitHub thật của từng người rồi bỏ dấu #.
+# Người được gán sẽ tự được yêu cầu duyệt PR vào phần tương ứng.
+# /backend/   @user-a
+# /android/   @user-b
+# /desktop/   @user-b
+# /firmware/  @user-c
+# /docs/      @user-a @user-b @user-c
