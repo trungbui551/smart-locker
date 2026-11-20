@@ -23,7 +23,7 @@
 | Quản lý cấu trúc CSDL | Flyway — **ĐỀ XUẤT** | Mỗi thay đổi bảng là 1 file SQL có thứ tự, chạy lại dễ dàng trên mọi máy và khi deploy | 0 | Hibernate `ddl-auto` (khó kiểm soát khi sửa bảng) |
 | Thư viện MQTT cho backend | Eclipse Paho hoặc Spring Integration MQTT — **ĐỀ XUẤT** (chốt 1 thư viện ở M4) | Giúp Spring Boot gửi lệnh và lắng nghe sự kiện/heartbeat từ nhiều tủ | 0 | — |
 | Kiểm thử tự động | JUnit 5, `./mvnw -B verify`, GitHub Actions — **Có sẵn** | Tự động kiểm tra logic nghiệp vụ mỗi khi đẩy code | 0 | — |
-| Hosting (2 môi trường) | Local bằng Docker **VÀ** Demo công khai (gói miễn phí có HTTPS + MQTT broker có mật khẩu, vd Render/Railway + HiveMQ Cloud) — **ĐỀ XUẤT** | Vừa phát triển nhanh trên máy cá nhân, vừa demo được trên điện thoại thật qua Internet | 0 (gói miễn phí) | VPS trả phí |
+| Hosting (2 môi trường) | Local bằng Docker **VÀ** Demo công khai (gói miễn phí có HTTPS + MQTT broker có mật khẩu, vd Render/Railway + EMQX Cloud Serverless) — **ĐỀ XUẤT** | Vừa phát triển nhanh trên máy cá nhân, vừa demo được trên điện thoại thật qua Internet | 0 (gói miễn phí) | VPS trả phí |
 
 **Tổng chi phí ước tính / tháng:** 0 đồng (dùng công cụ miễn phí, Gmail cá nhân, bản dùng thử SMS và gói miễn phí cho demo công khai).
 

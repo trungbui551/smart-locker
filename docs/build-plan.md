@@ -26,7 +26,7 @@
 | M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ✅ | Đã xong API Admin, cấp ngăn `PESSIMISTIC_WRITE`, 8/8 test xanh |
 | M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ✅ | Đã xong OTP 24h băm/AES-GCM, SMS Twilio/eSMS, khóa 3 lần, 11/11 test xanh |
 | M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ✅ | Đã xong Eclipse Paho MQTTv3, timeout 10s, 3 heartbeat offline, 14/14 test xanh |
-| M5 | Tủ mô phỏng ESP32 trên Wokwi (≥ 2 tủ, 6–9 ngăn/tủ) | F5 | ⬜ | Bạn chạy tay trên Wokwi |
+| M5 | Tủ mô phỏng ESP32 trên Wokwi (≥ 2 tủ, 6–9 ngăn/tủ) | F5 | ✅ | Đã tạo `firmware/locker-L01` & `locker-L02` (TLS HiveMQ Cloud), chờ bạn chạy tay trên Wokwi |
 | M6 | Web (PWA) cho Người nhận & Shipper — luồng chính end-to-end | F8 | ⬜ | Viết `docs/design-spec.md` trước |
 | M7 | Web (PWA) cho Vận hành, Admin, Trang trạng thái hệ thống & Nhật ký | F6, F7, F8 | ⬜ | Đủ 4 vai trò trên Web |
 | M8 | Triển khai Demo công khai trên Internet (HTTPS + MQTT bảo mật) | Hosting / NFR | ⬜ | Chạy được cả local và online |
@@ -144,9 +144,9 @@
 **Đọc trước:** PRD v2 Feature 5; `docs/mqtt-contract.md`
 
 **Việc cần làm:**
-- [ ] Mã Arduino C++ cho ESP32 trong `firmware/` (cấu hình được `lockerId` và tiền tố topic)
-- [ ] Sơ đồ `diagram.json` cho tủ 6–9 ngăn (LED/servo mô phỏng khóa, nút bấm mô phỏng cảm biến cửa mở/đóng và nút tạo lỗi `fault`)
-- [ ] Gửi `heartbeat` định kỳ; phản hồi `door_opened`, `door_closed` với đúng `correlationId`
+- [x] Mã Arduino C++ cho ESP32 trong `firmware/` (cấu hình được `lockerId` và tiền tố topic)
+- [x] Sơ đồ `diagram.json` cho tủ 6–9 ngăn (LED/servo mô phỏng khóa, nút bấm mô phỏng cảm biến cửa mở/đóng và nút tạo lỗi `fault`)
+- [x] Gửi `heartbeat` định kỳ; phản hồi `door_opened`, `door_closed` với đúng `correlationId`
 
 **Done khi:**
 - ✅ Chạy 2 tủ mô phỏng trên Wokwi kết nối thành công với backend thật qua MQTT
