@@ -24,7 +24,7 @@
 | M0 | Khung dự án chạy được | — | ✅ | Đã khởi tạo `backend/` Spring Boot 3, Docker, Flyway, test xanh |
 | M1 | Tài khoản, tự đăng ký, quên mật khẩu (Email) & phân quyền 4 vai trò | F1 | ✅ | Đã xong JWT, BCrypt, 4 vai trò, Gmail SMTP & OAuth 2, 4/4 test xanh |
 | M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ✅ | Đã xong API Admin, cấp ngăn `PESSIMISTIC_WRITE`, 8/8 test xanh |
-| M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ⬜ | OTP 24h, sai 3 lần khóa, đơn quá 72h → `EXPIRED` |
+| M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ✅ | Đã xong OTP 24h băm/AES-GCM, SMS Twilio/eSMS, khóa 3 lần, 11/11 test xanh |
 | M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ⬜ | Theo `docs/mqtt-contract.md` |
 | M5 | Tủ mô phỏng ESP32 trên Wokwi (≥ 2 tủ, 6–9 ngăn/tủ) | F5 | ⬜ | Bạn chạy tay trên Wokwi |
 | M6 | Web (PWA) cho Người nhận & Shipper — luồng chính end-to-end | F8 | ⬜ | Viết `docs/design-spec.md` trước |
@@ -105,11 +105,11 @@
 **Đọc trước:** PRD v2 Feature 3, mục ⑦; Tech Spec bảng `otp_codes`, mục ④
 
 **Việc cần làm:**
-- [ ] Migration bảng `otp_codes` (băm `code_hash`, hạn 24h, `failed_attempts`, `locked`, `resend_count`, `last_sent_at`)
-- [ ] Tích hợp gửi Email (Gmail) và gửi SMS (`SmsSender` cho Twilio/eSMS, lỗi/hết quota chỉ ghi log)
-- [ ] API kiểm tra OTP (đúng/sai/hết hạn/đã dùng/khóa sau 3 lần sai) và API xin cấp lại OTP (có chống spam)
-- [ ] Tác vụ định kỳ (scheduled job) kiểm tra đơn `READY` quá **72 giờ** → chuyển `EXPIRED`
-- [ ] Unit test đầy đủ mọi trường hợp OTP và quá hạn 72h
+- [x] Migration bảng `otp_codes` (băm `code_hash`, hạn 24h, `failed_attempts`, `locked`, `resend_count`, `last_sent_at`)
+- [x] Tích hợp gửi Email (Gmail) và gửi SMS (`SmsService` cho Twilio/eSMS, lỗi/hết quota chỉ ghi log)
+- [x] API kiểm tra OTP (đúng/sai/hết hạn/đã dùng/khóa sau 3 lần sai) và API xin cấp lại OTP (có chống spam)
+- [x] Tác vụ định kỳ (scheduled job) kiểm tra đơn `READY` quá **72 giờ** → chuyển `EXPIRED`
+- [x] Unit test đầy đủ mọi trường hợp OTP và quá hạn 72h
 
 **Done khi:**
 - ✅ OTP đúng mở được; sai 3 lần bị khóa; hết hạn 24h bị từ chối; xin cấp lại mã mới hoạt động

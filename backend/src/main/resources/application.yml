@@ -53,9 +53,16 @@ app:
       client-id: ${GMAIL_OAUTH_CLIENT_ID:}
       client-secret: ${GMAIL_OAUTH_CLIENT_SECRET:}
       refresh-token: ${GMAIL_OAUTH_REFRESH_TOKEN:}
+  otp:
+    expiration-hours: ${OTP_EXPIRATION_HOURS:24}
+    max-failed-attempts: ${OTP_MAX_FAILED_ATTEMPTS:3}
+    resend-cooldown-seconds: ${OTP_RESEND_COOLDOWN_SECONDS:30}
   sms:
     enabled: ${SMS_ENABLED:false}
     provider: ${SMS_PROVIDER:twilio}
+    api-key: ${SMS_API_KEY:}
+    api-secret: ${SMS_API_SECRET:}
+    from: ${SMS_FROM:}
 
 # Mở cổng kiểm tra sức khỏe /actuator/health
 management:

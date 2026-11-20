@@ -2,6 +2,7 @@ package com.smartlocker;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
 
@@ -9,6 +10,7 @@ import java.util.TimeZone;
  * Điểm khởi chạy chính của máy chủ Backend Smart Locker (Spring Boot 3, Java 21).
  */
 @SpringBootApplication
+@EnableScheduling
 public class SmartLockerApplication {
 
     public static void main(String[] args) {
