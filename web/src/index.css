@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/* Design Tokens + hiệu ứng nút bấm 3D nổi khối cho Smart Locker */
+:root {
+  --color-primary: #EA580C;
+  --color-background: #F4E8D8;
+  --color-surface: #FFFBF5;
+  --color-dark-block: #241914;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Hiệu ứng nút bấm 3D vật lý: có viền nổi trên, gờ dày bên dưới và lún xuống khi nhấn */
+.btn-3d {
+  position: relative;
+  transition: transform 110ms ease, box-shadow 110ms ease, background-color 150ms ease;
+}
+
+.btn-3d:not(:disabled):active {
+  transform: translateY(3px);
+}
+
+.btn-3d-orange {
+  background: linear-gradient(180deg, #F97316 0%, #EA580C 100%);
+  color: #FFFFFF;
+  border: 2px solid #C2410C;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.32), 0 4px 0 #9A3412, 0 6px 12px rgba(154, 52, 18, 0.22);
+}
+.btn-3d-orange:not(:disabled):hover {
+  background: linear-gradient(180deg, #FB923C 0%, #EA580C 100%);
+}
+.btn-3d-orange:not(:disabled):active {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #9A3412;
+}
+
+.btn-3d-amber {
+  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%);
+  color: #1C130C;
+  border: 2px solid #B45309;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 4px 0 #92400E, 0 6px 12px rgba(146, 64, 14, 0.2);
+}
+.btn-3d-amber:not(:disabled):hover {
+  background: linear-gradient(180deg, #FBBF24 0%, #D97706 100%);
+}
+.btn-3d-amber:not(:disabled):active {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 1px 0 #92400E;
+}
+
+.btn-3d-dark {
+  background: linear-gradient(180deg, #3B281E 0%, #241914 100%);
+  color: #FFFBF5;
+  border: 2px solid #160F0B;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), 0 4px 0 #120B08, 0 6px 10px rgba(18, 11, 8, 0.22);
+}
+.btn-3d-dark:not(:disabled):hover {
+  background: linear-gradient(180deg, #4A3327 0%, #2D1F18 100%);
+}
+.btn-3d-dark:not(:disabled):active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 0 #120B08;
+}
+
+.btn-3d-pine {
+  background: linear-gradient(180deg, #1E463C 0%, #132A24 100%);
+  color: #FFFDF7;
+  border: 2px solid #0B1B17;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), 0 4px 0 #091512, 0 6px 10px rgba(9, 21, 18, 0.22);
+}
+.btn-3d-pine:not(:disabled):hover {
+  background: linear-gradient(180deg, #25564A 0%, #17352D 100%);
+}
+.btn-3d-pine:not(:disabled):active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 0 #091512;
+}
+
+.btn-3d-navy {
+  background: linear-gradient(180deg, #1E3A8A 0%, #172554 100%);
+  color: #FFFFFF;
+  border: 2px solid #0F172A;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 4px 0 #0B1120, 0 6px 10px rgba(15, 23, 42, 0.22);
+}
+.btn-3d-navy:not(:disabled):hover {
+  background: linear-gradient(180deg, #2546A6 0%, #1E3A8A 100%);
+}
+.btn-3d-navy:not(:disabled):active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 0 #0B1120;
+}
+
+.btn-3d-cream {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F7EFE4 100%);
+  color: #291D16;
+  border: 2px solid #CBB69E;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.8), 0 4px 0 #B89F84;
+}
+.btn-3d-cream:not(:disabled):hover {
+  background: linear-gradient(180deg, #FFFDF9 0%, #EFE3D2 100%);
+}
+.btn-3d-cream:not(:disabled):active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 0 #B89F84;
+}
+
+.btn-3d-emerald {
+  background: linear-gradient(180deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF;
+  border: 2px solid #047857;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 4px 0 #065F46;
+}
+.btn-3d-emerald:not(:disabled):active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #065F46;
+}
+
+/* Tôn trọng thiết lập giảm chuyển động của người dùng (Accessibility) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
