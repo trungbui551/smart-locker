@@ -22,7 +22,7 @@
 | Mốc | Tên | Feature (PRD v2) | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | M0 | Khung dự án chạy được | — | ✅ | Đã khởi tạo `backend/` Spring Boot 3, Docker, Flyway, test xanh |
-| M1 | Tài khoản, tự đăng ký, quên mật khẩu (Email) & phân quyền 4 vai trò | F1 | ⬜ | `RECIPIENT`, `COURIER`, `OPERATOR`, `ADMIN` + Gmail SMTP |
+| M1 | Tài khoản, tự đăng ký, quên mật khẩu (Email) & phân quyền 4 vai trò | F1 | ✅ | Đã xong JWT, BCrypt, 4 vai trò, Gmail SMTP & OAuth 2, 4/4 test xanh |
 | M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ⬜ | Chưa nối MQTT |
 | M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ⬜ | OTP 24h, sai 3 lần khóa, đơn quá 72h → `EXPIRED` |
 | M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ⬜ | Theo `docs/mqtt-contract.md` |
@@ -65,11 +65,11 @@
 **Đọc trước:** PRD v2 Feature 1; Tech Spec bảng `users`, `password_reset_tokens`, mục ③, ⑥
 
 **Việc cần làm:**
-- [ ] Migration bảng `users` và `password_reset_tokens`, băm mật khẩu (BCrypt)
-- [ ] API đăng ký (ép cứng vai trò `RECIPIENT`), đăng nhập trả JWT, quên mật khẩu & đặt lại mật khẩu qua Gmail SMTP
-- [ ] Dữ liệu mẫu 4 tài khoản cho 4 vai trò (chỉ bật ở local)
-- [ ] Bảo vệ API theo 4 vai trò; ghi nhật ký (`REGISTER`, `LOGIN`, `PASSWORD_RESET`)
-- [ ] Unit test: đăng ký không thể tự gán quyền `ADMIN`, đăng nhập đúng/sai, từ chối sai vai trò, token đặt lại mật khẩu hết hạn/dùng 1 lần
+- [x] Migration bảng `users` và `password_reset_tokens`, băm mật khẩu (BCrypt)
+- [x] API đăng ký (ép cứng vai trò `RECIPIENT`), đăng nhập trả JWT, quên mật khẩu & đặt lại mật khẩu qua Gmail (SMTP / OAuth 2)
+- [x] Dữ liệu mẫu 4 tài khoản cho 4 vai trò (chỉ bật ở local)
+- [x] Bảo vệ API theo 4 vai trò; ghi nhật ký (`REGISTER`, `LOGIN`, `PASSWORD_RESET`)
+- [x] Unit test: đăng ký không thể tự gán quyền `ADMIN`, đăng nhập đúng/sai, từ chối sai vai trò, token đặt lại mật khẩu hết hạn/dùng 1 lần
 
 **Done khi:**
 - ✅ Tự đăng ký và đăng nhập thành công; sai mật khẩu báo lỗi rõ ràng
