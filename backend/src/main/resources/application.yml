@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: smart-locker-backend
+  # Tự động đọc file .env ở thư mục gốc repo (nếu có) để chạy local thuận tiện
+  config:
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:locker}
+    username: ${POSTGRES_USER:locker}
+    password: ${POSTGRES_PASSWORD:locker}
+  jpa:
+    # Để Flyway quản lý bảng; Hibernate chỉ kiểm tra lại cho khớp
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# Cấu hình ứng dụng lấy từ biến môi trường (.env)
+app:
+  mqtt:
+    broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
+    topic-prefix: ${MQTT_TOPIC_PREFIX:}
+  security:
+    jwt-secret: ${JWT_SECRET:local-dev-only-change-me}
+    otp-secret: ${OTP_SECRET:local-dev-only-change-me}
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    provider: ${SMS_PROVIDER:twilio}
+
+# Mở cổng kiểm tra sức khỏe /actuator/health cho M0
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

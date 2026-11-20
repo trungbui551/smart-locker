@@ -34,3 +34,10 @@ Thumbs.db
 # Dữ liệu chạy local
 mosquitto/data/
 mosquitto/log/
+
+# Frontend Web (React / Vite)
+node_modules/
+dist/
+
+# Thư mục tạm chứa repo skill tải về
+.agent/skills/_ui-ux-pro-max-repo/
