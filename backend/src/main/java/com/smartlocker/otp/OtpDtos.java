@@ -36,6 +36,7 @@ public final class OtpDtos {
             String lockerId,
             Integer compartmentNumber,
             boolean verified,
+            String correlationId,
             String message
     ) {
     }

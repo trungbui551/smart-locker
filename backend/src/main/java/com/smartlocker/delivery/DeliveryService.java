@@ -10,6 +10,9 @@ import com.smartlocker.locker.CompartmentStatus;
 import com.smartlocker.locker.Locker;
 import com.smartlocker.locker.LockerRepository;
 import com.smartlocker.locker.LockerStatus;
+import com.smartlocker.mqtt.CommandPurpose;
+import com.smartlocker.mqtt.LockerCommand;
+import com.smartlocker.mqtt.LockerCommandService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,19 +34,22 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
     private final AuditService auditService;
+    private final LockerCommandService lockerCommandService;
 
     public DeliveryService(
             LockerRepository lockerRepository,
             CompartmentRepository compartmentRepository,
             DeliveryRepository deliveryRepository,
             UserRepository userRepository,
-            AuditService auditService
+            AuditService auditService,
+            LockerCommandService lockerCommandService
     ) {
         this.lockerRepository = lockerRepository;
         this.compartmentRepository = compartmentRepository;
         this.deliveryRepository = deliveryRepository;
         this.userRepository = userRepository;
         this.auditService = auditService;
+        this.lockerCommandService = lockerCommandService;
     }
 
     @Transactional
@@ -95,7 +101,12 @@ public class DeliveryService {
                         + " (cỡ " + request.packageSize().getLabelVi() + ") cho đơn #" + saved.getId()
         );
 
-        return DeliveryDtos.DeliveryResponse.from(saved);
+        // Gửi lệnh mở ngăn qua MQTT để shipper bỏ hàng vào tủ
+        LockerCommand cmd = lockerCommandService.sendOpenCommand(
+                locker.getId(), allocated.getNumber(), saved.getId(), CommandPurpose.DROPOFF, courier, null
+        );
+
+        return DeliveryDtos.DeliveryResponse.from(saved, cmd.getCorrelationId());
     }
 
     @Transactional(readOnly = true)

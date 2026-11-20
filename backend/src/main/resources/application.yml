@@ -36,10 +36,14 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   mqtt:
+    enabled: ${MQTT_ENABLED:true}
     broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
     username: ${MQTT_USERNAME:}
     password: ${MQTT_PASSWORD:}
     topic-prefix: ${MQTT_TOPIC_PREFIX:}
+    open-timeout-seconds: ${MQTT_OPEN_TIMEOUT_SECONDS:10}
+    heartbeat-interval-seconds: ${MQTT_HEARTBEAT_INTERVAL_SECONDS:10}
+    missed-heartbeats-offline: ${MQTT_MISSED_HEARTBEATS_OFFLINE:3}
   security:
     jwt-secret: ${JWT_SECRET:local-dev-only-jwt-secret-key-please-change-me-32chars}
     jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:720}

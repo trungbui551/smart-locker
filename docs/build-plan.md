@@ -25,7 +25,7 @@
 | M1 | Tài khoản, tự đăng ký, quên mật khẩu (Email) & phân quyền 4 vai trò | F1 | ✅ | Đã xong JWT, BCrypt, 4 vai trò, Gmail SMTP & OAuth 2, 4/4 test xanh |
 | M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ✅ | Đã xong API Admin, cấp ngăn `PESSIMISTIC_WRITE`, 8/8 test xanh |
 | M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ✅ | Đã xong OTP 24h băm/AES-GCM, SMS Twilio/eSMS, khóa 3 lần, 11/11 test xanh |
-| M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ⬜ | Theo `docs/mqtt-contract.md` |
+| M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ✅ | Đã xong Eclipse Paho MQTTv3, timeout 10s, 3 heartbeat offline, 14/14 test xanh |
 | M5 | Tủ mô phỏng ESP32 trên Wokwi (≥ 2 tủ, 6–9 ngăn/tủ) | F5 | ⬜ | Bạn chạy tay trên Wokwi |
 | M6 | Web (PWA) cho Người nhận & Shipper — luồng chính end-to-end | F8 | ⬜ | Viết `docs/design-spec.md` trước |
 | M7 | Web (PWA) cho Vận hành, Admin, Trang trạng thái hệ thống & Nhật ký | F6, F7, F8 | ⬜ | Đủ 4 vai trò trên Web |
@@ -125,11 +125,11 @@
 **Đọc trước:** PRD v2 Feature 4, 6; `docs/mqtt-contract.md`; Tech Spec mục ④
 
 **Việc cần làm:**
-- [ ] Kết nối MQTT (hỗ trợ cả local không mật khẩu và online có username/password + tiền tố topic)
-- [ ] Gửi `cmd/open` kèm `correlationId`, theo dõi timeout **10 giây** chờ `door_opened`
-- [ ] Xử lý `door_opened`, `door_closed`, `fault` (bỏ qua trùng `correlationId`); cập nhật trạng thái đơn (`STORING` → `READY` → `PICKED_UP`) và ngăn (`OCCUPIED` → `FREE`)
-- [ ] Phát hiện tủ `OFFLINE` sau 3 heartbeat liên tiếp không đến; chặn cấp ngăn cho tủ `OFFLINE`
-- [ ] Unit test và kiểm thử giả lập tin nhắn MQTT
+- [x] Kết nối MQTT (hỗ trợ cả local không mật khẩu và online có username/password + tiền tố topic)
+- [x] Gửi `cmd/open` kèm `correlationId`, theo dõi timeout **10 giây** chờ `door_opened`
+- [x] Xử lý `door_opened`, `door_closed`, `fault` (bỏ qua trùng `correlationId`); cập nhật trạng thái đơn (`STORING` → `READY` → `PICKED_UP`) và ngăn (`OCCUPIED` → `FREE`)
+- [x] Phát hiện tủ `OFFLINE` sau 3 heartbeat liên tiếp không đến; chặn cấp ngăn cho tủ `OFFLINE`
+- [x] Unit test và kiểm thử giả lập tin nhắn MQTT
 
 **Done khi:**
 - ✅ Dùng công cụ MQTT giả lập 2 tủ `L01`, `L02`: trạng thái đơn/ngăn đổi đúng theo sự kiện cửa

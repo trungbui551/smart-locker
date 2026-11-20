@@ -35,9 +35,14 @@ public final class DeliveryDtos {
             DeliveryStatus status,
             Instant createdAt,
             Instant expiresAt,
-            Instant pickedUpAt
+            Instant pickedUpAt,
+            String correlationId
     ) {
         public static DeliveryResponse from(Delivery d) {
+            return from(d, null);
+        }
+
+        public static DeliveryResponse from(Delivery d, String correlationId) {
             return new DeliveryResponse(
                     d.getId(),
                     d.getCompartment().getLocker().getId(),
@@ -50,7 +55,8 @@ public final class DeliveryDtos {
                     d.getStatus(),
                     d.getCreatedAt(),
                     d.getExpiresAt(),
-                    d.getPickedUpAt()
+                    d.getPickedUpAt(),
+                    correlationId
             );
         }
     }

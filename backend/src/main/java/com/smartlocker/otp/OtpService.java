@@ -7,6 +7,9 @@ import com.smartlocker.delivery.Delivery;
 import com.smartlocker.delivery.DeliveryRepository;
 import com.smartlocker.delivery.DeliveryStatus;
 import com.smartlocker.mail.EmailService;
+import com.smartlocker.mqtt.CommandPurpose;
+import com.smartlocker.mqtt.LockerCommand;
+import com.smartlocker.mqtt.LockerCommandService;
 import com.smartlocker.sms.SmsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class OtpService {
     private final EmailService emailService;
     private final SmsService smsService;
     private final AuditService auditService;
+    private final LockerCommandService lockerCommandService;
     private final long otpExpirationHours;
     private final int maxFailedAttempts;
     private final long resendCooldownSeconds;
@@ -43,6 +47,7 @@ public class OtpService {
             EmailService emailService,
             SmsService smsService,
             AuditService auditService,
+            LockerCommandService lockerCommandService,
             @Value("${app.otp.expiration-hours:24}") long otpExpirationHours,
             @Value("${app.otp.max-failed-attempts:3}") int maxFailedAttempts,
             @Value("${app.otp.resend-cooldown-seconds:30}") long resendCooldownSeconds
@@ -53,6 +58,7 @@ public class OtpService {
         this.emailService = emailService;
         this.smsService = smsService;
         this.auditService = auditService;
+        this.lockerCommandService = lockerCommandService;
         this.otpExpirationHours = otpExpirationHours;
         this.maxFailedAttempts = maxFailedAttempts;
         this.resendCooldownSeconds = resendCooldownSeconds;
@@ -175,12 +181,23 @@ public class OtpService {
                 "Xác thực OTP thành công cho đơn #" + deliveryId + " (" + delivery.getCompartment().getLocker().getId()
                         + " ngăn #" + delivery.getCompartment().getNumber() + ").");
 
+        // Gửi lệnh mở ngăn qua MQTT tới tủ khóa cho người nhận lấy hàng
+        LockerCommand cmd = lockerCommandService.sendOpenCommand(
+                delivery.getCompartment().getLocker().getId(),
+                delivery.getCompartment().getNumber(),
+                delivery.getId(),
+                CommandPurpose.PICKUP,
+                recipient,
+                null
+        );
+
         return new OtpDtos.VerifyOtpResponse(
                 delivery.getId(),
                 delivery.getCompartment().getLocker().getId(),
                 delivery.getCompartment().getNumber(),
                 true,
-                "Mã OTP hợp lệ! Sẵn sàng mở ngăn số " + delivery.getCompartment().getNumber() + "."
+                cmd.getCorrelationId(),
+                "Mã OTP hợp lệ! Đã gửi lệnh mở ngăn số " + delivery.getCompartment().getNumber() + "."
         );
     }
 

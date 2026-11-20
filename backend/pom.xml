@@ -60,6 +60,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Giao tiếp MQTT với tủ khóa ESP32 (Eclipse Paho MQTTv3) -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+
         <!-- Kiểm tra dữ liệu đầu vào (Validation) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

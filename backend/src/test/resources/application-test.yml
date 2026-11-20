@@ -11,3 +11,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+app:
+  mqtt:
+    # Tắt kết nối mạng Mosquitto thật trong unit test CI; dùng giả lập trong MqttAndHeartbeatTests
+    enabled: false
