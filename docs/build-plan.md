@@ -23,7 +23,7 @@
 |---|---|---|---|---|
 | M0 | Khung dự án chạy được | — | ✅ | Đã khởi tạo `backend/` Spring Boot 3, Docker, Flyway, test xanh |
 | M1 | Tài khoản, tự đăng ký, quên mật khẩu (Email) & phân quyền 4 vai trò | F1 | ✅ | Đã xong JWT, BCrypt, 4 vai trò, Gmail SMTP & OAuth 2, 4/4 test xanh |
-| M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ⬜ | Chưa nối MQTT |
+| M2 | Tủ, ngăn theo cỡ (Nhỏ/Vừa/Lớn), quản trị Admin & cấp ngăn chống trùng | F2, F7 | ✅ | Đã xong API Admin, cấp ngăn `PESSIMISTIC_WRITE`, 8/8 test xanh |
 | M3 | Mã OTP đa kênh (Web/App + Gmail + SMS trial), cấp lại mã & quá hạn 72h | F3 | ⬜ | OTP 24h, sai 3 lần khóa, đơn quá 72h → `EXPIRED` |
 | M4 | MQTT phía backend (nhiều tủ, chờ 10s, heartbeat offline, lỗi cửa) | F4, F6 | ⬜ | Theo `docs/mqtt-contract.md` |
 | M5 | Tủ mô phỏng ESP32 trên Wokwi (≥ 2 tủ, 6–9 ngăn/tủ) | F5 | ⬜ | Bạn chạy tay trên Wokwi |
@@ -85,11 +85,11 @@
 **Đọc trước:** PRD v2 Feature 2, 7; Tech Spec bảng `lockers`, `compartments`, `deliveries`
 
 **Việc cần làm:**
-- [ ] Migration bảng `lockers`, `compartments` (có `size`: `SMALL`/`MEDIUM`/`LARGE`), `deliveries` (có `package_size`, `expires_at`)
-- [ ] Dữ liệu mẫu 2 tủ (`L01`, `L02`), mỗi tủ 6 ngăn (2 Nhỏ, 2 Vừa, 2 Lớn)
-- [ ] API Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
-- [ ] API Shipper cấp ngăn theo kích cỡ có khóa dữ liệu (`SELECT ... FOR UPDATE`) chống cấp trùng
-- [ ] Unit test: cấp ngăn đúng cỡ, hết ngăn đúng cỡ báo rõ, 2 shipper gửi cùng lúc không cấp trùng, kiểm tra quyền Admin
+- [x] Migration bảng `lockers`, `compartments` (có `size`: `SMALL`/`MEDIUM`/`LARGE`), `deliveries` (có `package_size`, `expires_at`)
+- [x] Dữ liệu mẫu 2 tủ (`L01`, `L02`), mỗi tủ 6 ngăn (2 Nhỏ, 2 Vừa, 2 Lớn)
+- [x] API Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
+- [x] API Shipper cấp ngăn theo kích cỡ có khóa dữ liệu (`SELECT ... FOR UPDATE`) chống cấp trùng
+- [x] Unit test: cấp ngăn đúng cỡ, hết ngăn đúng cỡ báo rõ, 2 shipper gửi cùng lúc không cấp trùng, kiểm tra quyền Admin
 
 **Done khi:**
 - ✅ Cấp ngăn thành công chuyển ngăn sang `OCCUPIED`
