@@ -14,4 +14,6 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
     List<Delivery> findAllByOrderByCreatedAtDesc();
 
     List<Delivery> findByStatusAndExpiresAtBefore(DeliveryStatus status, Instant cutoff);
+
+    List<Delivery> findByCompartmentLockerIdAndStatus(String lockerId, DeliveryStatus status);
 }

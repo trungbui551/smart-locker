@@ -3,14 +3,15 @@
 Thư mục này chứa sẵn **2 tủ mô phỏng độc lập** (`locker-L01/` và `locker-L02/`), mỗi tủ có **6 ngăn** (2 Nhỏ, 2 Vừa, 2 Lớn) tuân thủ đúng hợp đồng [mqtt-contract.md](../docs/mqtt-contract.md).
 
 ## Phần cứng mô phỏng trên mạch (`diagram.json`)
+- **Bàn phím số 4×4 (`keypad`):** Bấm trực tiếp 6 chữ số OTP + phím **`#`** để gửi xác thực lên Backend mở ngăn; bấm **`*`** để xóa nhập lại.
+- **Màn hình LCD 16×2 I2C (`lcd`):** Hiển thị trạng thái kết nối, dấu `******` khi bấm OTP, số ngăn đang mở (`MO NGAN #3!`) hoặc báo lỗi (`SAI MA OTP!`).
+- **Động cơ Servo (`servo` — GPIO 23):** Xoay góc `0° → 90°` mô phỏng chốt khóa cơ bật mở, xoay về `0°` khi đóng cửa.
 - **6 đèn LED (khóa điện 6 ngăn):**
   - `N1`, `N2` (xanh dương): Ngăn cỡ **Nhỏ** (`SMALL`) — GPIO 13, 12
   - `N3`, `N4` (cam): Ngăn cỡ **Vừa** (`MEDIUM`) — GPIO 14, 27
   - `N5`, `N6` (xanh lá): Ngăn cỡ **Lớn** (`LARGE`) — GPIO 26, 25
-  - *Đèn sáng = ngăn đang mở khóa; đèn tắt = ngăn đã khóa.*
-- **Nút bấm xanh lá (`Dong cua` — GPIO 32):** Bấm sau khi bỏ hàng / lấy hàng để báo `door_closed` về Backend và tắt đèn LED.
+- **Nút bấm xanh lá (`Dong cua` — GPIO 32):** Bấm sau khi bỏ/lấy hàng để đóng chốt Servo, tắt LED và gửi `door_closed`.
 - **Nút bấm đỏ (`Loi Fault` — GPIO 33):** Bấm để giả lập lỗi cửa (`fault`).
-- *(Có thể gõ `close` hoặc `fault` trong Serial Monitor thay cho bấm nút).*
 
 ---
 

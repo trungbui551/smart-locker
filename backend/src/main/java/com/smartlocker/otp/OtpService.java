@@ -202,6 +202,55 @@ public class OtpService {
     }
 
     /**
+     * Xác thực mã OTP nhập trực tiếp từ bàn phím 4x4 gắn trên tủ khóa (qua MQTT locker/{id}/otp/submit).
+     * Tìm đơn READY trong đúng tủ đó khớp mã băm OTP; nếu hợp lệ thì tự gửi lệnh mở ngăn cmd/open.
+     */
+    @Transactional
+    public boolean verifyKeypadOtpForLocker(String lockerId, String enteredCode) {
+        String normalizedLocker = lockerId.trim().toUpperCase();
+        String code = enteredCode == null ? "" : enteredCode.trim();
+        if (!code.matches("^\\d{6}$")) {
+            return false;
+        }
+
+        Instant now = Instant.now();
+        var readyDeliveries = deliveryRepository.findByCompartmentLockerIdAndStatus(normalizedLocker, DeliveryStatus.READY);
+        for (Delivery delivery : readyDeliveries) {
+            var otpOpt = otpCodeRepository.findByDeliveryId(delivery.getId());
+            if (otpOpt.isEmpty()) {
+                continue;
+            }
+            OtpCode otp = otpOpt.get();
+            if (otp.getUsedAt() != null || otp.isLocked() || otp.getExpiresAt().isBefore(now)) {
+                continue;
+            }
+            if (cryptoHelper.hash(delivery.getId(), code).equals(otp.getCodeHash())) {
+                otp.setUsedAt(now);
+                otp.setCodeEncrypted(null);
+                otpCodeRepository.save(otp);
+
+                auditService.record(delivery.getRecipient().getId(), "OTP_KEYPAD_VERIFIED",
+                        "Mở ngăn từ bàn phím tủ " + normalizedLocker + " ngăn #" + delivery.getCompartment().getNumber()
+                                + " cho đơn #" + delivery.getId() + ".");
+
+                lockerCommandService.sendOpenCommand(
+                        normalizedLocker,
+                        delivery.getCompartment().getNumber(),
+                        delivery.getId(),
+                        CommandPurpose.PICKUP,
+                        delivery.getRecipient(),
+                        null
+                );
+                return true;
+            }
+        }
+
+        auditService.record(null, "OTP_KEYPAD_FAILED",
+                "Nhập sai mã OTP từ bàn phím vật lý trên tủ " + normalizedLocker + ".");
+        return false;
+    }
+
+    /**
      * Xin cấp lại mã OTP mới (khi hết hạn 24h hoặc bị khóa 3 lần sai).
      * Cho phép chính chủ RECIPIENT (có giãn cách chống spam) hoặc OPERATOR/ADMIN hỗ trợ ngay.
      */
