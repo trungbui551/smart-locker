@@ -8,74 +8,82 @@ import {
   DoorClosed,
   DoorOpen,
   History,
-  KeyRound,
-  Mail,
-  MessageSquare,
   Radio,
-  RotateCcw,
 } from 'lucide-react';
+import { commandApi, deliveryApi } from '../api/client';
 import { getSizeLabel } from '../data/mockData';
 
 /**
- * Màn hình S8 — Xác nhận mở cửa & bỏ hàng vào ngăn (dành cho Shipper)
+ * Màn hình S8 — Theo dõi trực tiếp trạng thái mở/đóng cửa tủ Wokwi sau khi Shipper cấp ngăn (M6)
  */
 export default function ScreenS8ConfirmDropoff({
   theme: t,
-  pendingDropoff,
-  onConfirmDoorClosed,
-  onCancelDropoff,
-  onGoToS6,
+  pendingDelivery,
+  onCompleted,
   onGoToS7,
   onGoToS9,
 }) {
-  const [stage, setStage] = useState('WAITING_OPEN');
-  const [countdown, setCountdown] = useState(10);
-  const [completedOrder, setCompletedOrder] = useState(null);
+  const [cmdStatus, setCmdStatus] = useState('PENDING_OPEN');
+  const [manualLoading, setManualLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
-    setStage('WAITING_OPEN');
-    setCountdown(10);
-    setCompletedOrder(null);
-  }, [pendingDropoff?.correlationId]);
+    setCmdStatus('PENDING_OPEN');
+    setErrMsg('');
+  }, [pendingDelivery?.correlationId]);
 
+  // Poll trạng thái lệnh MQTT thật từ Backend mỗi 1 giây
   useEffect(() => {
-    if (!pendingDropoff || stage !== 'WAITING_OPEN') return undefined;
-    if (countdown <= 0) {
-      setStage('TIMEOUT');
-      return undefined;
-    }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [pendingDropoff, stage, countdown]);
+    if (!pendingDelivery?.correlationId) return undefined;
+    if (cmdStatus === 'CLOSED' || cmdStatus === 'TIMED_OUT' || cmdStatus === 'FAULT') return undefined;
 
-  if (!pendingDropoff && !completedOrder) {
+    const timer = setInterval(async () => {
+      try {
+        const res = await commandApi.getStatus(pendingDelivery.correlationId);
+        setCmdStatus(res.status);
+        if (res.status === 'CLOSED') {
+          onCompleted();
+        }
+      } catch {
+        // Giữ nguyên trạng thái chờ nếu mạng chập chờn
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pendingDelivery?.correlationId, cmdStatus, onCompleted]);
+
+  if (!pendingDelivery) {
     return (
       <div className={`${t.card} p-8 text-center max-w-xl mx-auto space-y-4`}>
         <Box className={`w-12 h-12 ${t.accentText} mx-auto`} aria-hidden="true" />
         <div>
           <h2 className={`text-lg font-bold ${t.heading}`}>Chưa có ngăn nào đang chờ bỏ hàng</h2>
           <p className={`text-sm ${t.mutedText} mt-1`}>
-            Hãy quay lại màn hình <strong>S7 (Chọn tủ &amp; Gửi hàng)</strong> để chọn tủ và kích cỡ hàng trước.
+            Hãy sang màn hình <strong>S7 (Chọn tủ &amp; Gửi hàng)</strong> để cấp ngăn trước.
           </p>
         </div>
         <button
           type="button"
           onClick={onGoToS7}
-          className={`min-h-[44px] px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${t.blueBtn}`}
+          className={`min-h-[44px] px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2 cursor-pointer ${t.blueBtn}`}
         >
-          Sang màn hình S7 để tạo đơn
-          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          Sang S7 tạo đơn mới <ArrowRight className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
     );
   }
 
-  const info = completedOrder || pendingDropoff;
-
-  const handleDoorClosed = () => {
-    const created = onConfirmDoorClosed();
-    setCompletedOrder(created);
-    setStage('COMPLETED');
+  const handleFallbackMarkReady = async () => {
+    setManualLoading(true);
+    setErrMsg('');
+    try {
+      await deliveryApi.markReady(pendingDelivery.id);
+      setCmdStatus('CLOSED');
+      onCompleted();
+    } catch (err) {
+      setErrMsg(err.message);
+    } finally {
+      setManualLoading(false);
+    }
   };
 
   return (
@@ -85,51 +93,51 @@ export default function ScreenS8ConfirmDropoff({
           <div className="min-w-0">
             <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border max-w-full truncate ${t.pill}`}>
               <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">MQTT: <span className="font-mono-code">{info.correlationId}</span></span>
+              <span className="truncate">MQTT: <span className="font-mono-code">{pendingDelivery.correlationId}</span></span>
             </span>
             <h2 className={`text-xl font-bold ${t.heading} mt-2`}>
-              {info.lockerId} — {info.lockerName}
+              Đơn #{pendingDelivery.id} · {pendingDelivery.lockerId} — {pendingDelivery.lockerName}
             </h2>
             <p className={`text-sm ${t.mutedText} mt-0.5`}>
-              Người nhận: <strong className={t.bodyText}>{info.recipientName}</strong> ({info.recipientContact})
+              Người nhận: <strong className={t.bodyText}>{pendingDelivery.recipientFullName}</strong> (@{pendingDelivery.recipientUsername})
             </p>
           </div>
           <div className={`${t.compHighlight} px-5 py-3 text-center shrink-0`}>
-            <div className={`text-xs font-semibold ${t.compHighlightLabel || t.heading}`}>Ngăn được cấp</div>
+            <div className={`text-xs font-semibold ${t.compHighlightLabel}`}>Ngăn được cấp</div>
             <div className={`text-4xl font-extrabold font-mono-code leading-tight ${t.compHighlightNum}`}>
-              #{info.compartmentNumber}
+              #{pendingDelivery.compartmentNumber}
             </div>
             <div className={`text-xs font-bold ${t.compHighlightSub}`}>
-              Cỡ {getSizeLabel(info.packageSize)}
+              Cỡ {getSizeLabel(pendingDelivery.packageSize)}
             </div>
           </div>
         </div>
 
-        {/* Tiến trình 3 bước */}
+        {/* Tiến trình 3 bước live theo MQTT */}
         <div className="grid grid-cols-1 @2xl:grid-cols-3 gap-3 py-5">
           <div className={`p-3.5 rounded-xl border ${t.alertSuccess}`}>
             <div className="flex items-center gap-2 text-xs font-bold">
               <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-              1. Gửi lệnh mở
+              1. Đã gửi lệnh MQTT
             </div>
             <p className="text-xs mt-1 font-mono-code opacity-90">
-              locker/{info.lockerId}/cmd/open
+              locker/{pendingDelivery.lockerId}/cmd/open
             </p>
           </div>
 
           <div
             className={`p-3.5 rounded-xl border ${
-              stage === 'DOOR_OPENED' || stage === 'COMPLETED'
+              cmdStatus === 'OPENED' || cmdStatus === 'CLOSED'
                 ? t.alertSuccess
-                : stage === 'TIMEOUT'
+                : cmdStatus === 'TIMED_OUT'
                 ? t.alertError
                 : t.alertInfo
             }`}
           >
             <div className="flex items-center gap-2 text-xs font-bold">
-              {stage === 'DOOR_OPENED' || stage === 'COMPLETED' ? (
+              {cmdStatus === 'OPENED' || cmdStatus === 'CLOSED' ? (
                 <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-              ) : stage === 'TIMEOUT' ? (
+              ) : cmdStatus === 'TIMED_OUT' ? (
                 <AlertTriangle className="w-4 h-4" aria-hidden="true" />
               ) : (
                 <Clock className="w-4 h-4" aria-hidden="true" />
@@ -137,171 +145,91 @@ export default function ScreenS8ConfirmDropoff({
               2. Cảm biến mở cửa
             </div>
             <p className="text-xs mt-1 opacity-90">
-              {stage === 'WAITING_OPEN'
-                ? `Đang chờ door_opened (${countdown}s)...`
-                : stage === 'TIMEOUT'
-                ? 'Quá 10 giây không mở!'
-                : 'Đã nhận door_opened'}
+              {cmdStatus === 'PENDING_OPEN' && 'Đang chờ tủ Wokwi báo door_opened (10s)...'}
+              {cmdStatus === 'OPENED' && 'Tủ đã mở khóa (LED sáng + Servo 90°)'}
+              {cmdStatus === 'CLOSED' && 'Đã xác nhận mở & đóng cửa'}
+              {cmdStatus === 'TIMED_OUT' && 'Quá 10 giây không nhận phản hồi'}
             </p>
           </div>
 
           <div
             className={`p-3.5 rounded-xl border ${
-              stage === 'COMPLETED'
+              cmdStatus === 'CLOSED'
                 ? t.alertSuccess
-                : stage === 'DOOR_OPENED'
+                : cmdStatus === 'OPENED'
                 ? t.alertWarn
                 : `${t.subCard} ${t.mutedText}`
             }`}
           >
             <div className="flex items-center gap-2 text-xs font-bold">
-              {stage === 'COMPLETED' ? (
-                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-              ) : (
-                <DoorClosed className="w-4 h-4" aria-hidden="true" />
-              )}
-              3. Đóng cửa &amp; Sinh OTP
+              {cmdStatus === 'CLOSED' ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : <DoorClosed className="w-4 h-4" aria-hidden="true" />}
+              3. Đóng cửa &amp; Gửi OTP
             </div>
             <p className="text-xs mt-1 opacity-90">
-              {stage === 'COMPLETED'
-                ? 'Đơn READY · Đã gửi OTP'
-                : stage === 'DOOR_OPENED'
-                ? 'Hãy bỏ hàng và đóng cửa'
-                : 'Đang chờ bước 2'}
+              {cmdStatus === 'CLOSED' ? 'Đơn READY · Đã gửi OTP 24h' : 'Chờ bấm nút XANH trên Wokwi'}
             </p>
           </div>
         </div>
 
-        {stage === 'WAITING_OPEN' && (
-          <div className={`p-4 rounded-xl border space-y-3 ${t.alertInfo}`}>
-            <div className="text-sm font-semibold">
-              Đang chờ tủ ESP32 (Wokwi) phản hồi <code className="font-mono-code">door_opened</code>... ({countdown}s)
+        {cmdStatus === 'OPENED' && (
+          <div className={`p-5 rounded-xl border-2 space-y-2 ${t.alertWarn}`}>
+            <div className="flex items-center gap-2 font-bold">
+              <DoorOpen className="w-5 h-5" aria-hidden="true" />
+              Ngăn #{pendingDelivery.compartmentNumber} trên Wokwi đang mở!
             </div>
-            <p className="text-xs opacity-90">
-              Trong bản prototype này, bạn có thể bấm nút bên dưới để mô phỏng tín hiệu cảm biến từ tủ khóa:
+            <p className="text-xs">
+              Hãy bấm nút <strong>XANH LÁ (Dong cua)</strong> trên mạch Wokwi để gửi <code className="font-mono-code">door_closed</code>, tự động chuyển đơn sang <strong>READY</strong> và phát hành OTP cho người nhận.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setStage('DOOR_OPENED')}
-                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${t.blueBtn}`}
-              >
-                <DoorOpen className="w-4 h-4" aria-hidden="true" />
-                Mô phỏng tủ báo: Cửa đã mở (door_opened)
-              </button>
-              <button
-                type="button"
-                onClick={() => setStage('TIMEOUT')}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-rose-600/15 hover:bg-rose-600/25 border border-rose-400/60 text-rose-600 dark:text-rose-300 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
-              >
-                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
-                Giả lập quá 10s cửa không mở
-              </button>
-            </div>
           </div>
         )}
 
-        {stage === 'DOOR_OPENED' && (
-          <div className={`p-5 rounded-xl border-2 space-y-3 ${t.alertWarn}`}>
+        {cmdStatus === 'TIMED_OUT' && (
+          <div className={`p-5 rounded-xl border-2 space-y-3 ${t.alertError}`}>
             <div className="flex items-center gap-2 font-bold">
-              <DoorOpen className="w-5 h-5" aria-hidden="true" />
-              Ngăn #{info.compartmentNumber} đã mở! Mời bạn đặt gói hàng vào và đóng cửa.
+              <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+              Quá 10 giây không nhận được door_opened từ tủ {pendingDelivery.lockerId}
             </div>
-            <p className="text-xs opacity-90">
-              Ngay khi cảm biến báo cửa đã đóng (<code className="font-mono-code">door_closed</code>), đơn chuyển sang <strong>Chờ nhận</strong> và tự gửi OTP cho người nhận.
+            <p className="text-xs">
+              Kiểm tra xem tab Wokwi của tủ {pendingDelivery.lockerId} có đang bấm Play không. Nếu bạn đang test không cần Wokwi, có thể bấm nút xác nhận thủ công bên dưới:
             </p>
             <button
               type="button"
-              onClick={handleDoorClosed}
-              className={`min-h-[48px] px-5 py-3 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${t.primaryBtn}`}
+              disabled={manualLoading}
+              onClick={handleFallbackMarkReady}
+              className={`min-h-[44px] px-4 py-2 text-xs font-bold cursor-pointer ${t.blueBtn}`}
             >
-              <DoorClosed className="w-4 h-4" aria-hidden="true" />
-              Mô phỏng cảm biến: Đã bỏ hàng &amp; đóng cửa (door_closed)
+              {manualLoading ? 'Đang xử lý...' : 'Xác nhận đã bỏ hàng xong (chuyển READY + sinh OTP)'}
             </button>
           </div>
         )}
 
-        {stage === 'TIMEOUT' && (
-          <div className={`p-5 rounded-xl border-2 space-y-3 ${t.alertError}`}>
+        {cmdStatus === 'CLOSED' && (
+          <div className={`p-5 rounded-xl border-2 space-y-3 ${t.alertSuccess}`}>
             <div className="flex items-center gap-2 font-bold">
-              <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-              Lỗi kết nối tủ: Quá 10 giây không nhận được tín hiệu cửa mở
+              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+              Gửi hàng thành công! Đơn #{pendingDelivery.id} đã chuyển READY và phát hành OTP đa kênh.
             </div>
-            <p className="text-xs opacity-90">
-              Hệ thống đã ghi nhận sự cố vào nhật ký và <strong>không đổi trạng thái đơn hàng</strong>. Ngăn #{info.compartmentNumber} đã được trả về Trống.
-            </p>
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setCountdown(10);
-                  setStage('WAITING_OPEN');
-                }}
-                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2 cursor-pointer ${t.blueBtn}`}
-              >
-                <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                Thử gửi lại lệnh mở
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onCancelDropoff();
-                  onGoToS7();
-                }}
-                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold cursor-pointer ${t.subtleBtn}`}
-              >
-                Quay về S7 chọn tủ khác
-              </button>
-            </div>
-          </div>
-        )}
-
-        {stage === 'COMPLETED' && completedOrder && (
-          <div className={`p-5 rounded-xl border-2 space-y-4 ${t.alertSuccess}`}>
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
-                <h3 className="text-base font-bold">
-                  Gửi hàng thành công! Đơn {completedOrder.id} đã sẵn sàng chờ nhận.
-                </h3>
-                <p className="text-xs opacity-90 mt-1">
-                  Mã OTP (hiệu lực 24h) đã gửi qua Web/App, Gmail ({completedOrder.recipientContact}) và SMS ({completedOrder.recipientPhone}). Thời hạn lưu hàng: 72 giờ.
-                </p>
-                <div className="flex flex-wrap items-center gap-2 mt-2.5 text-xs">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-mono-code font-bold ${t.badgeReady}`}>
-                    <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
-                    OTP Demo: {completedOrder.otpCode}
-                  </span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg ${t.badgeSuccess}`}>
-                    <Mail className="w-3.5 h-3.5" aria-hidden="true" /> Gmail OK
-                  </span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg ${t.badgeSuccess}`}>
-                    <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" /> SMS OK
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => onGoToS6(completedOrder.id)}
-                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${t.primaryBtn}`}
-              >
-                <KeyRound className="w-4 h-4" aria-hidden="true" />
-                Sang S6 thử nhập OTP lấy đơn này
-              </button>
-              <button
-                type="button"
                 onClick={onGoToS9}
-                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${t.secondaryBtn}`}
+                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold inline-flex items-center gap-2 cursor-pointer ${t.primaryBtn}`}
               >
                 <History className="w-4 h-4" aria-hidden="true" />
-                Xem trong Lịch sử (S9)
+                Xem lịch sử đơn đã gửi (S9)
+              </button>
+              <button
+                type="button"
+                onClick={onGoToS7}
+                className={`min-h-[44px] px-4 py-2.5 text-sm font-semibold cursor-pointer ${t.secondaryBtn}`}
+              >
+                Gửi đơn tiếp theo (S7)
               </button>
             </div>
           </div>
         )}
+
+        {errMsg && <div className={`mt-3 p-3 rounded-xl border text-xs ${t.alertError}`}>{errMsg}</div>}
       </div>
     </div>
   );

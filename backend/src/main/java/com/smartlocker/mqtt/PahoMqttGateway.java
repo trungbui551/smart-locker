@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -59,7 +60,31 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
 
     @PostConstruct
     public void start() {
+        connectAndSubscribe();
+    }
+
+    /**
+     * Tự kiểm tra và nối lại MQTT mỗi 10 giây nếu kết nối bị rớt giữa chừng (ví dụ rớt Wi-Fi hoặc EMQX Cloud ngắt).
+     */
+    @Scheduled(fixedDelay = 10000, initialDelay = 10000)
+    public void ensureConnected() {
+        if (!isConnected()) {
+            log.info("MQTT dang mat ket noi, thu ket noi lai toi {}...", brokerUrl);
+            connectAndSubscribe();
+        }
+    }
+
+    private synchronized void connectAndSubscribe() {
+        if (isConnected()) {
+            return;
+        }
         try {
+            if (client != null) {
+                try {
+                    client.close(true);
+                } catch (Exception ignored) {
+                }
+            }
             String clientId = "smart-locker-backend-" + UUID.randomUUID().toString().substring(0, 8);
             client = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
             client.setCallback(this);
@@ -67,8 +92,8 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
             MqttConnectOptions options = new MqttConnectOptions();
             options.setAutomaticReconnect(true);
             options.setCleanSession(true);
-            options.setConnectionTimeout(5);
-            options.setKeepAliveInterval(20);
+            options.setConnectionTimeout(10);
+            options.setKeepAliveInterval(30);
             if (!username.isBlank()) {
                 options.setUserName(username);
                 options.setPassword(password.toCharArray());
@@ -78,7 +103,7 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
             subscribeTopics();
             log.info("Da ket noi MQTT broker tai {} (prefix='{}')", brokerUrl, topicPrefix);
         } catch (Exception ex) {
-            log.warn("Chua ket noi duoc MQTT broker tai {}: {} (se tu ket noi lai)", brokerUrl, ex.getMessage());
+            log.warn("Chua ket noi duoc MQTT broker tai {}: {} (se tu ket noi lai sau 10s)", brokerUrl, ex.getMessage());
         }
     }
 
@@ -144,7 +169,8 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
     public void connectComplete(boolean reconnect, String serverURI) {
         if (reconnect) {
             log.info("Da tu ket noi lai MQTT broker {}", serverURI);
-            subscribeTopics();
+            // Chạy subscribe trên luồng riêng để tránh deadlock luồng callback của Eclipse Paho v3
+            new Thread(this::subscribeTopics, "mqtt-resubscribe").start();
         }
     }
 

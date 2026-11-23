@@ -1,58 +1,71 @@
 import { useState } from 'react';
 import {
+  AlertCircle,
   ArrowRight,
   CheckCircle2,
   KeyRound,
   LogIn,
   LogOut,
   Mail,
-  Phone,
   Server,
   ShieldCheck,
-  User,
   UserPlus,
 } from 'lucide-react';
+import { authApi, getApiBaseUrl, setApiBaseUrl } from '../api/client';
 import { ROLE_LABELS } from '../data/mockData';
 
 /**
- * Bộ màn hình Chung:
- * - S1: Đăng nhập (hỗ trợ chọn nhanh 4 vai trò mẫu để demo)
- * - S2: Đăng ký tài khoản mới (ép cứng vai trò RECIPIENT theo PRD)
- * - S3: Quên mật khẩu & Đặt lại mật khẩu qua Email (Gmail)
- * - S4: Hồ sơ cá nhân, đổi mật khẩu & cấu hình địa chỉ Server (Local / Online)
+ * Bộ màn hình Tài khoản nối trực tiếp với API Backend thật (M6):
+ * - S1: Đăng nhập (POST /api/auth/login) + 4 nút đăng nhập nhanh bằng tài khoản mẫu local
+ * - S2: Đăng ký Người nhận (POST /api/auth/register)
+ * - S3: Quên mật khẩu & Đặt lại mật khẩu qua Gmail (POST /api/auth/forgot-password & /reset-password)
+ * - S4: Hồ sơ cá nhân, Đổi địa chỉ máy chủ Backend (Local 8081 / 8080 / Demo online) & Đăng xuất
  */
 export default function ScreenAuthBundle({
   screenId,
   theme: t,
   currentUser,
-  onLoginAsRole,
-  onRegisterRecipient,
+  sessionNotice,
+  onAuthSuccess,
+  onLogout,
   onNavigateScreen,
-  onAddLog,
 }) {
   // S1 state
-  const [loginId, setLoginId] = useState('nguyenvanan@gmail.com');
-  const [loginPw, setLoginPw] = useState('••••••••');
-  const [loginMsg, setLoginMsg] = useState('');
+  const [loginId, setLoginId] = useState('recipient');
+  const [loginPw, setLoginPw] = useState('Locker@123');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // S2 state
   const [regName, setRegName] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
-  const [regMsg, setRegMsg] = useState('');
+  const [regPw, setRegPw] = useState('');
 
   // S3 state
   const [resetStep, setResetStep] = useState(1);
-  const [resetEmail, setResetEmail] = useState('nguyenvanan@gmail.com');
+  const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
-  const [resetMsg, setResetMsg] = useState('');
+  const [resetNewPw, setResetNewPw] = useState('');
 
   // S4 state
-  const [serverMode, setServerMode] = useState('local');
-  const [profileName, setProfileName] = useState(currentUser.fullName);
-  const [profilePhone, setProfilePhone] = useState(currentUser.phone);
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
+
+  const runLogin = async (identifier, password) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    setLoading(true);
+    try {
+      const res = await authApi.login(identifier, password);
+      onAuthSuccess(res.token, res.user);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (screenId === 'S1') {
     return (
@@ -66,15 +79,20 @@ export default function ScreenAuthBundle({
             />
             <h2 className={`text-xl font-extrabold ${t.heading}`}>Đăng nhập Smart Locker</h2>
             <p className={`text-xs ${t.mutedText}`}>
-              Phân quyền tự động theo 4 vai trò: Người nhận, Shipper, Vận hành &amp; Admin.
+              Kết nối Backend thật tại <code className="font-mono-code">{getApiBaseUrl()}</code>
             </p>
           </div>
+
+          {sessionNotice && (
+            <div className={`p-3 rounded-xl border text-xs font-medium ${t.alertWarn}`}>
+              {sessionNotice}
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              setLoginMsg('Đăng nhập thành công! Đang chuyển vào màn hình chính...');
-              onLoginAsRole('RECIPIENT');
+              runLogin(loginId, loginPw);
             }}
             className="space-y-3.5"
           >
@@ -115,36 +133,44 @@ export default function ScreenAuthBundle({
               />
             </div>
 
+            {errorMsg && (
+              <div role="alert" className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${t.alertError}`}>
+                <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             <button
               type="submit"
-              className={`w-full min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${t.primaryBtn}`}
+              disabled={loading}
+              className={`w-full min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${t.primaryBtn}`}
             >
               <LogIn className="w-4 h-4" aria-hidden="true" />
-              Đăng nhập ngay
+              {loading ? 'Đang đăng nhập...' : 'Đăng nhập ngay'}
             </button>
           </form>
 
-          {loginMsg && (
-            <div className={`p-3 rounded-xl border text-xs font-medium ${t.alertSuccess}`}>
-              {loginMsg}
-            </div>
-          )}
-
-          {/* Nút vào nhanh 4 vai trò để tiện demo */}
+          {/* 4 nút đăng nhập nhanh bằng tài khoản mẫu local thật trên PostgreSQL */}
           <div className={`pt-4 border-t ${t.divider} space-y-2.5`}>
             <div className={`text-xs font-semibold ${t.mutedText}`}>
-              Vào nhanh bằng tài khoản mẫu (Demo 4 vai trò):
+              Đăng nhập nhanh tài khoản mẫu local (mật khẩu <code className="font-mono-code">Locker@123</code>):
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {(['RECIPIENT', 'COURIER', 'OPERATOR', 'ADMIN']).map((role) => (
+              {[
+                { id: 'recipient', label: 'Người nhận' },
+                { id: 'courier', label: 'Shipper' },
+                { id: 'operator', label: 'Vận hành' },
+                { id: 'admin', label: 'Quản trị viên' },
+              ].map((acc) => (
                 <button
-                  key={role}
+                  key={acc.id}
                   type="button"
-                  onClick={() => onLoginAsRole(role)}
+                  disabled={loading}
+                  onClick={() => runLogin(acc.id, 'Locker@123')}
                   className={`min-h-[42px] px-3 py-2 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer ${t.secondaryBtn}`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                  {ROLE_LABELS[role]}
+                  {acc.label}
                 </button>
               ))}
             </div>
@@ -172,24 +198,30 @@ export default function ScreenAuthBundle({
           <div>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${t.pill}`}>
               <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-              Vai trò mặc định: Người nhận (RECIPIENT)
+              Tự đăng ký → mặc định Người nhận (RECIPIENT)
             </span>
             <h2 className={`text-xl font-extrabold mt-2 ${t.heading}`}>Đăng ký tài khoản mới</h2>
-            <p className={`text-xs mt-0.5 ${t.mutedText}`}>
-              Hệ thống tự gắn quyền Người nhận ở backend (chống tự nâng quyền Admin).
-            </p>
           </div>
 
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              onRegisterRecipient({
-                fullName: regName.trim() || 'Người nhận mới',
-                username: regUsername.trim() || `user_${Math.floor(100 + Math.random() * 900)}`,
-                email: regEmail.trim(),
-                phone: regPhone.trim(),
-              });
-              setRegMsg('Đăng ký thành công! Tài khoản đã xuất hiện trong danh sách Admin (S14).');
+              setErrorMsg('');
+              setLoading(true);
+              try {
+                const res = await authApi.register({
+                  fullName: regName.trim(),
+                  username: regUsername.trim(),
+                  email: regEmail.trim(),
+                  phone: regPhone.trim(),
+                  password: regPw,
+                });
+                onAuthSuccess(res.token, res.user);
+              } catch (err) {
+                setErrorMsg(err.message);
+              } finally {
+                setLoading(false);
+              }
             }}
             className="space-y-3.5"
           >
@@ -217,6 +249,7 @@ export default function ScreenAuthBundle({
                   id="reg-user"
                   type="text"
                   required
+                  minLength={3}
                   value={regUsername}
                   onChange={(e) => setRegUsername(e.target.value)}
                   placeholder="minhnv"
@@ -234,7 +267,7 @@ export default function ScreenAuthBundle({
                   required
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="0912 345 678"
+                  placeholder="0912345678"
                   className={`w-full min-h-[44px] px-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
                 />
               </div>
@@ -264,32 +297,29 @@ export default function ScreenAuthBundle({
                 type="password"
                 required
                 minLength={8}
+                value={regPw}
+                onChange={(e) => setRegPw(e.target.value)}
                 placeholder="••••••••"
                 className={`w-full min-h-[44px] px-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
               />
             </div>
 
+            {errorMsg && (
+              <div role="alert" className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${t.alertError}`}>
+                <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             <button
               type="submit"
-              className={`w-full min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${t.primaryBtn}`}
+              disabled={loading}
+              className={`w-full min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${t.primaryBtn}`}
             >
               <UserPlus className="w-4 h-4" aria-hidden="true" />
-              Tạo tài khoản Người nhận
+              {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản Người nhận'}
             </button>
           </form>
-
-          {regMsg && (
-            <div className={`p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between gap-2 ${t.alertSuccess}`}>
-              <span>{regMsg}</span>
-              <button
-                type="button"
-                onClick={() => onNavigateScreen('S1')}
-                className="font-bold underline shrink-0 cursor-pointer"
-              >
-                Đăng nhập
-              </button>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -302,18 +332,26 @@ export default function ScreenAuthBundle({
           <div>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${t.pill}`}>
               <Mail className="w-3.5 h-3.5" aria-hidden="true" />
-              Khôi phục qua Gmail SMTP · Mã dùng 1 lần (15 phút)
+              Khôi phục qua Gmail · Mã dùng 1 lần (15 phút)
             </span>
             <h2 className={`text-xl font-extrabold mt-2 ${t.heading}`}>Quên mật khẩu</h2>
           </div>
 
           {resetStep === 1 ? (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setResetStep(2);
-                setResetMsg(`Đã gửi mã xác nhận (demo: 829104) tới ${resetEmail}.`);
-                onAddLog('PASSWORD_RESET_REQ', `Yêu cầu đặt lại mật khẩu cho email ${resetEmail}.`);
+                setErrorMsg('');
+                setLoading(true);
+                try {
+                  const res = await authApi.forgotPassword(resetEmail.trim());
+                  setSuccessMsg(res.message);
+                  setResetStep(2);
+                } catch (err) {
+                  setErrorMsg(err.message);
+                } finally {
+                  setLoading(false);
+                }
               }}
               className="space-y-4"
             >
@@ -330,24 +368,35 @@ export default function ScreenAuthBundle({
                   className={`w-full min-h-[44px] px-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
                 />
               </div>
+              {errorMsg && <div className={`p-3 rounded-xl border text-xs ${t.alertError}`}>{errorMsg}</div>}
               <button
                 type="submit"
+                disabled={loading}
                 className={`w-full min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${t.primaryBtn}`}
               >
-                Gửi mã đặt lại qua Gmail
+                {loading ? 'Đang gửi...' : 'Gửi mã đặt lại qua Gmail'}
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </form>
           ) : (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setResetMsg('Đổi mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.');
-                onAddLog('PASSWORD_RESET', `Đặt lại mật khẩu thành công cho ${resetEmail}.`);
+                setErrorMsg('');
+                setLoading(true);
+                try {
+                  const res = await authApi.resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPw);
+                  setSuccessMsg(res.message);
+                } catch (err) {
+                  setErrorMsg(err.message);
+                } finally {
+                  setLoading(false);
+                }
               }}
               className="space-y-4"
             >
-              <div className={`p-3 rounded-xl border text-xs ${t.alertInfo}`}>{resetMsg}</div>
+              {successMsg && <div className={`p-3 rounded-xl border text-xs ${t.alertInfo}`}>{successMsg}</div>}
+              {errorMsg && <div className={`p-3 rounded-xl border text-xs ${t.alertError}`}>{errorMsg}</div>}
               <div>
                 <label htmlFor="reset-code" className={`block text-xs font-semibold mb-1.5 ${t.bodyText}`}>
                   Mã xác nhận từ Email (6 chữ số)
@@ -359,26 +408,27 @@ export default function ScreenAuthBundle({
                   required
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="829104"
                   className={`w-full min-h-[44px] px-3.5 py-2.5 text-sm font-mono-code focus:outline-none ${t.input}`}
                 />
               </div>
               <div>
                 <label htmlFor="reset-new-pw" className={`block text-xs font-semibold mb-1.5 ${t.bodyText}`}>
-                  Mật khẩu mới
+                  Mật khẩu mới (tối thiểu 8 ký tự)
                 </label>
                 <input
                   id="reset-new-pw"
                   type="password"
                   required
                   minLength={8}
-                  placeholder="Tối thiểu 8 ký tự"
+                  value={resetNewPw}
+                  onChange={(e) => setResetNewPw(e.target.value)}
                   className={`w-full min-h-[44px] px-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
                 />
               </div>
               <div className="flex gap-3">
                 <button
                   type="submit"
+                  disabled={loading}
                   className={`flex-1 min-h-[48px] px-5 py-3 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${t.primaryBtn}`}
                 >
                   <KeyRound className="w-4 h-4" aria-hidden="true" />
@@ -399,115 +449,106 @@ export default function ScreenAuthBundle({
     );
   }
 
-  // S4 — Hồ sơ cá nhân & Cấu hình Server
+  // S4 — Hồ sơ cá nhân & Cấu hình máy chủ Backend
   return (
     <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-5 items-start">
-      <div className={`@4xl:col-span-7 ${t.card} p-5 space-y-4`}>
-        <div className="flex items-center gap-3.5 pb-4 border-b border-[#E2D9CC]">
-          <div className="w-12 h-12 rounded-2xl bg-[#172554] text-[#FDBA74] flex items-center justify-center font-extrabold text-lg shrink-0">
-            {currentUser.fullName.charAt(0)}
-          </div>
-          <div>
-            <h2 className={`text-lg font-bold ${t.heading}`}>{currentUser.fullName}</h2>
-            <p className={`text-xs ${t.mutedText}`}>
-              {currentUser.email} · Vai trò: <strong>{ROLE_LABELS[currentUser.role]}</strong>
-            </p>
-          </div>
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setProfileSaved(true);
-            setTimeout(() => setProfileSaved(false), 2000);
-          }}
-          className="space-y-3.5"
-        >
-          <div>
-            <label htmlFor="pf-name" className={`block text-xs font-semibold mb-1.5 ${t.bodyText}`}>
-              Họ và tên
-            </label>
-            <div className="relative">
-              <User className={`w-4 h-4 ${t.mutedText} absolute left-3.5 top-1/2 -translate-y-1/2`} aria-hidden="true" />
-              <input
-                id="pf-name"
-                type="text"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className={`w-full min-h-[44px] pl-10 pr-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
-              />
+      <div className={`@4xl:col-span-6 ${t.card} p-5 space-y-4`}>
+        {currentUser ? (
+          <>
+            <div className="flex items-center gap-3.5 pb-4 border-b border-[#E2D9CC]">
+              <div className="w-12 h-12 rounded-2xl bg-[#172554] text-[#FDBA74] flex items-center justify-center font-extrabold text-lg shrink-0">
+                {currentUser.fullName?.charAt(0) || 'U'}
+              </div>
+              <div>
+                <h2 className={`text-lg font-bold ${t.heading}`}>{currentUser.fullName}</h2>
+                <p className={`text-xs ${t.mutedText}`}>
+                  @{currentUser.username} · <strong>{ROLE_LABELS[currentUser.role] || currentUser.role}</strong>
+                </p>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="pf-phone" className={`block text-xs font-semibold mb-1.5 ${t.bodyText}`}>
-              Số điện thoại nhận SMS OTP
-            </label>
-            <div className="relative">
-              <Phone className={`w-4 h-4 ${t.mutedText} absolute left-3.5 top-1/2 -translate-y-1/2`} aria-hidden="true" />
-              <input
-                id="pf-phone"
-                type="tel"
-                value={profilePhone}
-                onChange={(e) => setProfilePhone(e.target.value)}
-                className={`w-full min-h-[44px] pl-10 pr-3.5 py-2.5 text-sm focus:outline-none ${t.input}`}
-              />
+            <div className="space-y-2 text-sm">
+              <div className={`${t.subCard} p-3`}>
+                <span className={`text-xs ${t.mutedText}`}>Email:</span>{' '}
+                <strong className={t.bodyText}>{currentUser.email}</strong>
+              </div>
+              <div className={`${t.subCard} p-3`}>
+                <span className={`text-xs ${t.mutedText}`}>Số điện thoại:</span>{' '}
+                <strong className={t.bodyText}>{currentUser.phone}</strong>
+              </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 pt-1">
-            <button
-              type="submit"
-              className={`min-h-[44px] px-5 py-2.5 text-sm inline-flex items-center gap-2 cursor-pointer ${t.primaryBtn}`}
-            >
-              <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-              Lưu thay đổi
-            </button>
             <button
               type="button"
-              onClick={() => onNavigateScreen('S1')}
+              onClick={onLogout}
               className={`min-h-[44px] px-4 py-2.5 text-sm inline-flex items-center gap-2 cursor-pointer ${t.secondaryBtn}`}
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
               Đăng xuất
             </button>
+          </>
+        ) : (
+          <div className="text-center py-6 space-y-3">
+            <p className={`text-sm ${t.mutedText}`}>Bạn chưa đăng nhập vào Backend.</p>
+            <button
+              type="button"
+              onClick={() => onNavigateScreen('S1')}
+              className={`min-h-[44px] px-5 py-2.5 text-sm cursor-pointer ${t.primaryBtn}`}
+            >
+              Đi tới Đăng nhập (S1)
+            </button>
           </div>
-          {profileSaved && (
-            <div className={`p-3 rounded-xl border text-xs font-medium ${t.alertSuccess}`}>
-              Đã lưu thông tin hồ sơ cá nhân.
-            </div>
-          )}
-        </form>
+        )}
       </div>
 
-      {/* Cột phải: Chuyển máy chủ Local / Demo công khai (tiện cho Android Capacitor & Desktop Electron) */}
-      <div className={`@4xl:col-span-5 ${t.card} p-5 space-y-3.5`}>
+      {/* Cấu hình địa chỉ máy chủ Backend */}
+      <div className={`@4xl:col-span-6 ${t.card} p-5 space-y-3.5`}>
         <div className="flex items-center gap-2">
           <Server className={`w-5 h-5 ${t.accentText}`} aria-hidden="true" />
-          <h3 className={`text-base font-bold ${t.heading}`}>Cấu hình máy chủ Backend</h3>
+          <h3 className={`text-base font-bold ${t.heading}`}>Địa chỉ máy chủ Backend API</h3>
         </div>
-        <p className={`text-xs ${t.mutedText}`}>
-          Dùng để chuyển nhanh giữa máy tính cá nhân (Docker) và môi trường demo công khai (HTTPS) trên App Android / Desktop.
-        </p>
-
-        <div className="space-y-2.5">
-          {[
-            { id: 'local', label: 'Môi trường Local (Docker)', url: 'http://localhost:8080' },
-            { id: 'online', label: 'Demo công khai (Internet HTTPS)', url: 'https://smart-locker-demo.onrender.com' },
-          ].map((srv) => (
+        <div className="flex flex-wrap gap-2">
+          {['http://localhost:8081', 'http://localhost:8080'].map((preset) => (
             <button
-              key={srv.id}
+              key={preset}
               type="button"
-              onClick={() => setServerMode(srv.id)}
-              className={`w-full text-left p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
-                serverMode === srv.id ? t.selectableActive : t.selectableIdle
+              onClick={() => {
+                const saved = setApiBaseUrl(preset);
+                setApiUrl(saved);
+                setSuccessMsg(`Đã đổi máy chủ Backend sang ${saved}`);
+              }}
+              className={`min-h-[38px] px-3 py-1.5 text-xs font-mono-code font-bold cursor-pointer ${
+                apiUrl === preset ? t.primaryBtn : t.secondaryBtn
               }`}
             >
-              <div className={`text-sm font-bold ${t.bodyText}`}>{srv.label}</div>
-              <div className={`text-xs font-mono-code mt-0.5 ${t.mutedText}`}>{srv.url}</div>
+              {preset}
             </button>
           ))}
         </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const saved = setApiBaseUrl(apiUrl);
+            setApiUrl(saved);
+            setSuccessMsg(`Đã lưu địa chỉ máy chủ: ${saved}`);
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="url"
+            value={apiUrl}
+            onChange={(e) => setApiUrl(e.target.value)}
+            placeholder="https://smart-locker.onrender.com"
+            className={`flex-1 min-h-[44px] px-3 py-2 text-xs font-mono-code focus:outline-none ${t.input}`}
+          />
+          <button type="submit" className={`min-h-[44px] px-4 py-2 text-xs font-bold cursor-pointer ${t.softActionBtn}`}>
+            Lưu
+          </button>
+        </form>
+        {successMsg && (
+          <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${t.alertSuccess}`}>
+            <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{successMsg}</span>
+          </div>
+        )}
       </div>
     </div>
   );

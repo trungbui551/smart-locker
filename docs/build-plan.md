@@ -161,9 +161,9 @@
 **Đọc trước:** PRD v2 Feature 8; tạo `docs/design-spec.md` trước khi code mốc này
 
 **Việc cần làm:**
-- [ ] Viết `docs/design-spec.md` mô tả các màn hình Web
-- [ ] Giao diện React (`web/`) theo Design System (`design-system/smart-locker/MASTER.md`) + cấu hình PWA (manifest, icon, service worker cơ bản): Đăng ký, Đăng nhập, Quên mật khẩu, Màn hình Shipper (chọn tủ, cỡ hàng Nhỏ/Vừa/Lớn), Màn hình Người nhận (xem đơn, xem/nhập OTP, xin cấp lại OTP)
-- [ ] Hiển thị thông báo lỗi rõ ràng cho mọi tình huống ở PRD mục ⑦
+- [x] Viết `docs/design-spec.md` mô tả các màn hình Web
+- [x] Giao diện React (`web/`) theo Design System (`design-system/smart-locker/MASTER.md`) + cấu hình PWA (manifest, icon, service worker cơ bản): Đăng ký, Đăng nhập, Quên mật khẩu, Màn hình Shipper (chọn tủ, cỡ hàng Nhỏ/Vừa/Lớn), Màn hình Người nhận (xem đơn, xem/nhập OTP, xin cấp lại OTP)
+- [x] Hiển thị thông báo lỗi rõ ràng cho mọi tình huống ở PRD mục ⑦
 
 **Done khi:**
 - ✅ Chạy trọn luồng Đăng ký → Shipper gửi theo cỡ → Nhận OTP (Web + Gmail + SMS) → Mở tủ Wokwi → Đóng cửa hoàn tất
