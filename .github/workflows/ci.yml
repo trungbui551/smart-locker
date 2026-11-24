@@ -9,8 +9,6 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    # Chỉ chạy khi đã có mã backend
-    if: ${{ hashFiles('backend/pom.xml') != '' }}
     defaults:
       run:
         working-directory: backend
