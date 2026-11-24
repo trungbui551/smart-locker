@@ -1,14 +1,13 @@
 # Multi-stage Dockerfile cho Backend Spring Boot 3 (Java 21)
-# Giai đoạn 1: Build file JAR bằng Maven Wrapper có sẵn trong repo
-FROM eclipse-temurin:21-jdk-alpine AS build
+# Giai đoạn 1: Dùng ảnh maven:3.9-eclipse-temurin-21-alpine (có sẵn Maven, không bị lỗi 429 khi tải mvnw trên Render)
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
-COPY mvnw pom.xml ./
-COPY .mvn ./.mvn
-RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
+COPY pom.xml ./
+RUN mvn -B dependency:go-offline
 
 COPY src ./src
-RUN ./mvnw -B clean package -DskipTests
+RUN mvn -B clean package -DskipTests
 
 # Giai đoạn 2: Chạy ứng dụng bằng ảnh JRE siêu gọn (tối ưu RAM cho gói Render miễn phí 512MB)
 FROM eclipse-temurin:21-jre-alpine
