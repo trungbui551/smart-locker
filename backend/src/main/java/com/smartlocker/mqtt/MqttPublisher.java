@@ -7,5 +7,7 @@ public interface MqttPublisher {
 
     void publishOpenCommand(String lockerId, int compartmentNumber, String correlationId);
 
+    void publishDisplayMessage(String lockerId, String line1, String line2);
+
     boolean isConnected();
 }

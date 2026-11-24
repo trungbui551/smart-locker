@@ -161,9 +161,9 @@
 **Đọc trước:** PRD v2 Feature 8; tạo `docs/design-spec.md` trước khi code mốc này
 
 **Việc cần làm:**
-- [ ] Viết `docs/design-spec.md` mô tả các màn hình Web
-- [ ] Giao diện React (`web/`) theo Design System (`design-system/smart-locker/MASTER.md`) + cấu hình PWA (manifest, icon, service worker cơ bản): Đăng ký, Đăng nhập, Quên mật khẩu, Màn hình Shipper (chọn tủ, cỡ hàng Nhỏ/Vừa/Lớn), Màn hình Người nhận (xem đơn, xem/nhập OTP, xin cấp lại OTP)
-- [ ] Hiển thị thông báo lỗi rõ ràng cho mọi tình huống ở PRD mục ⑦
+- [x] Viết `docs/design-spec.md` mô tả các màn hình Web
+- [x] Giao diện React (`web/`) theo Design System (`design-system/smart-locker/MASTER.md`) + cấu hình PWA (manifest, icon, service worker cơ bản): Đăng ký, Đăng nhập, Quên mật khẩu, Màn hình Shipper (chọn tủ, cỡ hàng Nhỏ/Vừa/Lớn), Màn hình Người nhận (xem đơn, xem/nhập OTP, xin cấp lại OTP)
+- [x] Hiển thị thông báo lỗi rõ ràng cho mọi tình huống ở PRD mục ⑦
 
 **Done khi:**
 - ✅ Chạy trọn luồng Đăng ký → Shipper gửi theo cỡ → Nhận OTP (Web + Gmail + SMS) → Mở tủ Wokwi → Đóng cửa hoàn tất
@@ -178,9 +178,9 @@
 **Đọc trước:** PRD v2 Feature 6, 7, 8; Tech Spec bảng `audit_events`
 
 **Việc cần làm:**
-- [ ] Trang **Quản lý trạng thái hệ thống**: tình trạng Backend/Database/MQTT, số tủ online/offline, tỷ lệ ngăn đang dùng, cảnh báo `fault`, đơn quá hạn 72h
-- [ ] Màn hình Vận hành: sơ đồ ngăn theo tủ và cỡ, mở ngăn thủ công (có log), hỗ trợ cấp lại OTP, đánh dấu ngăn lỗi, xem nhật ký thao tác
-- [ ] Màn hình Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
+- [x] Trang **Quản lý trạng thái hệ thống**: tình trạng Backend/Database/MQTT, số tủ online/offline, tỷ lệ ngăn đang dùng, cảnh báo `fault`, đơn quá hạn 72h
+- [x] Màn hình Vận hành: sơ đồ ngăn theo tủ và cỡ, mở ngăn thủ công (có log), hỗ trợ cấp lại OTP, đánh dấu ngăn lỗi, xem nhật ký thao tác
+- [x] Màn hình Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
 
 **Done khi:**
 - ✅ Dừng tủ Wokwi thấy trạng thái hệ thống cập nhật `OFFLINE`

@@ -1,2 +1,5 @@
 PubSubClient
 ArduinoJson
+LiquidCrystal I2C
+Keypad
+ESP32Servo

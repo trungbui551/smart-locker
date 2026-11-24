@@ -112,7 +112,8 @@
 
 **Done khi:**
 - ✅ Có mã nguồn Arduino C++ và sơ đồ mạch `diagram.json` trong `firmware/` chạy được trên Wokwi cho tối thiểu **2 tủ** (ví dụ `L01`, `L02`), mỗi tủ **6–9 ngăn**
-- ✅ Mỗi tủ nhận lệnh `cmd/open` đúng `lockerId` của mình, mở khóa (đèn LED/servo mô phỏng) và gửi lại `door_opened`, `door_closed` với đúng `correlationId`
+- ✅ Có phần cứng tương tác trực tiếp tại tủ: **bàn phím số 4×4** (bấm OTP mở trực tiếp), **màn hình LCD 16×2** hiển thị trạng thái, **chốt khóa Servo** xoay mở/đóng, **6 đèn LED** phân màu theo cỡ ngăn và **2 nút bấm** đóng cửa / giả lập lỗi `fault`
+- ✅ Mỗi tủ nhận lệnh `cmd/open` đúng `lockerId` của mình, mở khóa (xoay Servo + bật LED) và gửi lại `door_opened`, `door_closed` với đúng `correlationId`
 - ✅ Gửi `heartbeat` định kỳ lên `locker/{lockerId}/heartbeat`
 - ✅ Gửi sự kiện `fault` khi mô phỏng lỗi (ví dụ cửa mở lâu không đóng hoặc kẹt khóa)
 - ❌ Chạy trên mạch ESP32 phần cứng thật (ngoài scope)

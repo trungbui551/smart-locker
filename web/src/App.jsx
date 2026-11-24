@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Activity,
+  AlertCircle,
   Box,
   CheckCircle2,
   ClipboardList,
@@ -20,14 +21,18 @@ import {
   Users,
 } from 'lucide-react';
 import {
-  INITIAL_AUDIT_LOGS,
-  INITIAL_DELIVERIES,
-  INITIAL_LOCKERS,
-  INITIAL_USERS,
-  ROLE_LABELS,
-  generateDemoOtp,
-  getNowLabel,
-} from './data/mockData';
+  adminApi,
+  authApi,
+  clearSession,
+  deliveryApi,
+  getSavedToken,
+  getSavedUser,
+  lockerApi,
+  operatorApi,
+  saveSession,
+  setUnauthorizedHandler,
+} from './api/client';
+import { ROLE_LABELS } from './data/mockData';
 import { DESIGN_THEMES } from './data/themes';
 import ScreenAuthBundle from './components/ScreenAuthBundle';
 import ScreenS5RecipientOrders from './components/ScreenS5RecipientOrders';
@@ -42,7 +47,7 @@ import ScreenS13AuditLog from './components/ScreenS13AuditLog';
 import ScreenS14AdminUsers from './components/ScreenS14AdminUsers';
 import ScreenS15AdminLockers from './components/ScreenS15AdminLockers';
 
-// Nhóm màn hình theo đúng 5 nhóm trong docs/design-spec.md (15 màn hình S1–S15)
+// Nhóm màn hình theo đúng 5 nhóm trong docs/design-spec.md (đủ 15 màn hình S1–S15 nối API thật)
 const ROLE_GROUPS = [
   {
     key: 'AUTH',
@@ -100,358 +105,247 @@ function findGroupByScreen(screenId) {
   return ROLE_GROUPS.find((g) => g.screens.some((s) => s.id === screenId)) || ROLE_GROUPS[0];
 }
 
+function getDefaultScreenForRole(role) {
+  if (role === 'RECIPIENT') return 'S5';
+  if (role === 'COURIER') return 'S7';
+  if (role === 'OPERATOR') return 'S10';
+  if (role === 'ADMIN') return 'S14';
+  return 'S1';
+}
+
 export default function App() {
   const theme = DESIGN_THEMES.navyWarm3d;
   const [viewportMode, setViewportMode] = useState('desktop');
-  const [activeScreen, setActiveScreen] = useState('S10');
-  const [users, setUsers] = useState(INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState(INITIAL_USERS[3]); // Mặc định Admin để xem nhanh
-  const [lockers, setLockers] = useState(INITIAL_LOCKERS);
-  const [deliveries, setDeliveries] = useState(INITIAL_DELIVERIES);
-  const [auditLogs, setAuditLogs] = useState(INITIAL_AUDIT_LOGS);
-  const [selectedDeliveryId, setSelectedDeliveryId] = useState(INITIAL_DELIVERIES[0].id);
+
+  // === DỮ LIỆU THẬT 100% TỪ BACKEND (đủ 15 màn hình S1–S15) ===
+  const [currentUser, setCurrentUser] = useState(() => (getSavedToken() ? getSavedUser() : null));
+  const [activeScreen, setActiveScreen] = useState(() => {
+    const saved = getSavedToken() ? getSavedUser() : null;
+    return saved ? getDefaultScreenForRole(saved.role) : 'S1';
+  });
+  const [sessionNotice, setSessionNotice] = useState('');
+  const [apiError, setApiError] = useState('');
+
+  const [lockers, setLockers] = useState([]);
+  const [lockersLoading, setLockersLoading] = useState(false);
+
+  const [deliveries, setDeliveries] = useState([]);
+  const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
+  const [pendingDelivery, setPendingDelivery] = useState(null);
+
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [systemLoading, setSystemLoading] = useState(false);
+
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
   const [selectedLockerForMap, setSelectedLockerForMap] = useState('L01');
-  const [pendingDropoff, setPendingDropoff] = useState(null);
 
   const activeGroup = findGroupByScreen(activeScreen);
   const activeScreenMeta = activeGroup.screens.find((s) => s.id === activeScreen);
 
-  // Ghi thêm 1 dòng vào Nhật ký thao tác (S13) — không bao giờ ghi OTP/mật khẩu
-  const appendAuditLog = (action, detail, customActor, customRole) => {
-    setAuditLogs((prev) => [
-      {
-        id: prev.length ? prev[0].id + 1 : 1,
-        time: getNowLabel(),
-        actor: customActor || currentUser.fullName,
-        role: customRole || currentUser.role,
-        action,
-        detail,
-      },
-      ...prev,
-    ]);
-  };
-
-  // S1: Đăng nhập nhanh theo vai trò
-  const handleLoginAsRole = (role) => {
-    const found = users.find((u) => u.role === role) || users[0];
-    setCurrentUser(found);
-    appendAuditLog('LOGIN', `Đăng nhập thành công với vai trò ${ROLE_LABELS[role]}.`, found.fullName, role);
-    if (role === 'RECIPIENT') setActiveScreen('S5');
-    else if (role === 'COURIER') setActiveScreen('S7');
-    else if (role === 'OPERATOR') setActiveScreen('S10');
-    else setActiveScreen('S14');
-  };
-
-  // S2: Người nhận tự đăng ký (luôn ép cứng RECIPIENT)
-  const handleRegisterRecipient = ({ fullName, username, email, phone }) => {
-    const newUser = {
-      id: users.length + 1,
-      username,
-      fullName,
-      email,
-      phone,
-      role: 'RECIPIENT',
-      active: true,
-      createdAt: getNowLabel(),
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    appendAuditLog('REGISTER', `Tài khoản mới ${email} tự đăng ký (vai trò RECIPIENT).`, fullName, 'RECIPIENT');
-  };
-
-  // S7 -> S8: Cấp ngăn theo kích cỡ
-  const handleAllocateAndOpen = ({
-    lockerId,
-    packageSize,
-    recipientName,
-    recipientContact,
-    recipientPhone,
-  }) => {
-    const locker = lockers.find((l) => l.id === lockerId);
-    if (!locker) return;
-    const freeComp = locker.compartments.find((c) => c.status === 'FREE' && c.size === packageSize);
-    if (!freeComp) return;
-
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== lockerId
-          ? l
-          : {
-              ...l,
-              compartments: l.compartments.map((c) =>
-                c.number === freeComp.number ? { ...c, status: 'OCCUPIED' } : c
-              ),
-            }
-      )
-    );
-
-    setPendingDropoff({
-      correlationId: `cmd-${Math.floor(10000 + Math.random() * 90000)}`,
-      lockerId: locker.id,
-      lockerName: locker.name,
-      lockerLocation: locker.location,
-      compartmentNumber: freeComp.number,
-      packageSize,
-      recipientName,
-      recipientContact,
-      recipientPhone,
-    });
-    setActiveScreen('S8');
-  };
-
-  const handleCancelDropoff = () => {
-    if (!pendingDropoff) return;
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== pendingDropoff.lockerId
-          ? l
-          : {
-              ...l,
-              compartments: l.compartments.map((c) =>
-                c.number === pendingDropoff.compartmentNumber ? { ...c, status: 'FREE' } : c
-              ),
-            }
-      )
-    );
-    appendAuditLog(
-      'OPEN_TIMEOUT',
-      `Quá 10s không nhận door_opened cho ${pendingDropoff.lockerId} · Ngăn #${pendingDropoff.compartmentNumber}.`,
-      'Hệ thống (MQTT)',
-      'SYSTEM'
-    );
-    setPendingDropoff(null);
-  };
-
-  const handleConfirmDoorClosed = () => {
-    if (!pendingDropoff) return null;
-    const newId = `DH-${1046 + deliveries.length}`;
-    const newOrder = {
-      id: newId,
-      lockerId: pendingDropoff.lockerId,
-      lockerName: pendingDropoff.lockerName,
-      lockerLocation: pendingDropoff.lockerLocation,
-      compartmentNumber: pendingDropoff.compartmentNumber,
-      packageSize: pendingDropoff.packageSize,
-      recipientName: pendingDropoff.recipientName,
-      recipientContact: pendingDropoff.recipientContact,
-      recipientPhone: pendingDropoff.recipientPhone,
-      courierName: 'Phạm Quốc Hùng',
-      status: 'READY',
-      otpCode: generateDemoOtp(),
-      otpExpired: false,
-      failedAttempts: 0,
-      locked: false,
-      createdAt: 'Vừa xong',
-      storageRemaining: '72 giờ 00 phút',
-      otpRemaining: '24 giờ 00 phút',
-      channels: { web: true, email: true, sms: true },
-    };
-
-    setDeliveries((prev) => [newOrder, ...prev]);
-    setSelectedDeliveryId(newOrder.id);
-    appendAuditLog(
-      'ALLOCATE_COMPARTMENT',
-      `Cấp ${newOrder.lockerId} · Ngăn #${newOrder.compartmentNumber} (${newOrder.packageSize}) cho đơn ${newOrder.id}; đã gửi OTP đa kênh.`,
-      'Phạm Quốc Hùng',
-      'COURIER'
-    );
-    setPendingDropoff(null);
-    return newOrder;
-  };
-
-  // S6: Xác thực OTP
-  const handleVerifyOtp = (deliveryId, enteredCode) => {
-    const target = deliveries.find((d) => d.id === deliveryId);
-    if (!target) return { ok: false, message: 'Không tìm thấy đơn hàng.' };
-    if (target.locked) return { ok: false, message: 'Đơn hàng đang tạm khóa do nhập sai quá 3 lần.' };
-    if (target.otpExpired) return { ok: false, message: 'Mã OTP đã hết hạn 24 giờ. Hãy bấm cấp lại mã mới.' };
-
-    if (enteredCode !== target.otpCode) {
-      const nextFails = target.failedAttempts + 1;
-      const nowLocked = nextFails >= 3;
-      setDeliveries((prev) =>
-        prev.map((d) => (d.id === deliveryId ? { ...d, failedAttempts: nextFails, locked: nowLocked } : d))
-      );
-      appendAuditLog(
-        nowLocked ? 'OTP_LOCKED' : 'OTP_FAILED',
-        `Đơn ${deliveryId} nhập sai OTP (${nextFails}/3 lần).`,
-        target.recipientName,
-        'RECIPIENT'
-      );
-      return {
-        ok: false,
-        message: nowLocked
-          ? 'Bạn đã nhập sai OTP 3/3 lần. Đơn hàng đã tạm khóa — hãy bấm "Xin cấp lại mã mới".'
-          : `Mã OTP không đúng (sai ${nextFails}/3 lần). Vui lòng kiểm tra lại.`,
-      };
+  const loadLockers = useCallback(async (silent = false) => {
+    if (!getSavedToken()) return;
+    if (!silent) setLockersLoading(true);
+    try {
+      const data = await lockerApi.list();
+      setLockers(Array.isArray(data) ? data : []);
+      setApiError('');
+    } catch (err) {
+      if (!silent) setApiError(err.message);
+    } finally {
+      if (!silent) setLockersLoading(false);
     }
-    return { ok: true };
-  };
+  }, []);
 
-  const handleResendOtp = (deliveryId, byOperator = false) => {
-    const freshCode = generateDemoOtp();
-    setDeliveries((prev) =>
-      prev.map((d) =>
-        d.id === deliveryId
-          ? { ...d, otpCode: freshCode, otpExpired: false, failedAttempts: 0, locked: false, otpRemaining: '24 giờ 00 phút' }
-          : d
-      )
-    );
-    appendAuditLog(
-      'OTP_RESEND',
-      `${byOperator ? 'Nhân viên hỗ trợ' : 'Người nhận'} cấp lại mã OTP mới cho đơn ${deliveryId} (đã gửi Web, Gmail, SMS).`,
-      byOperator ? 'Trần Ngọc Lan' : undefined,
-      byOperator ? 'OPERATOR' : 'RECIPIENT'
-    );
-    return freshCode;
-  };
+  const loadDeliveries = useCallback(async (silent = false) => {
+    if (!getSavedToken()) return;
+    if (!silent) setDeliveriesLoading(true);
+    try {
+      const data = await deliveryApi.myList();
+      const list = Array.isArray(data) ? data : [];
+      setDeliveries(list);
+      setSelectedDeliveryId((prev) => {
+        if (prev && list.some((d) => d.id === prev)) return prev;
+        return list.find((d) => d.status === 'READY')?.id || list[0]?.id || null;
+      });
+      setApiError('');
+    } catch (err) {
+      if (!silent) setApiError(err.message);
+    } finally {
+      if (!silent) setDeliveriesLoading(false);
+    }
+  }, []);
 
-  const handleSimulateExpire = (deliveryId) => {
-    setDeliveries((prev) =>
-      prev.map((d) => (d.id === deliveryId ? { ...d, otpExpired: true, otpRemaining: 'Đã hết hạn' } : d))
-    );
-  };
+  const loadSystemDashboard = useCallback(
+    async (silent = false) => {
+      if (!getSavedToken()) return;
+      if (!silent) setSystemLoading(true);
+      try {
+        const [statusData, lockerData, deliveryData] = await Promise.all([
+          operatorApi.systemStatus(),
+          lockerApi.list(),
+          deliveryApi.myList(),
+        ]);
+        setSystemStatus(statusData);
+        setLockers(Array.isArray(lockerData) ? lockerData : []);
+        setDeliveries(Array.isArray(deliveryData) ? deliveryData : []);
+        setApiError('');
+      } catch (err) {
+        if (!silent) setApiError(err.message);
+      } finally {
+        if (!silent) setSystemLoading(false);
+      }
+    },
+    []
+  );
 
-  const handleCompletePickup = (deliveryId) => {
-    const target = deliveries.find((d) => d.id === deliveryId);
-    if (!target) return;
-    setDeliveries((prev) =>
-      prev.map((d) =>
-        d.id === deliveryId
-          ? { ...d, status: 'PICKED_UP', otpCode: '------', otpExpired: true, storageRemaining: 'Đã nhận vừa xong' }
-          : d
-      )
-    );
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== target.lockerId
-          ? l
-          : {
-              ...l,
-              compartments: l.compartments.map((c) =>
-                c.number === target.compartmentNumber ? { ...c, status: 'FREE' } : c
-              ),
-            }
-      )
-    );
-    appendAuditLog(
-      'PICKUP_COMPLETED',
-      `Đơn ${deliveryId} hoàn tất lấy hàng (door_closed); ${target.lockerId} · Ngăn #${target.compartmentNumber} trở về FREE.`,
-      target.recipientName,
-      'RECIPIENT'
-    );
-  };
+  const loadAuditLogs = useCallback(async () => {
+    if (!getSavedToken()) return;
+    setAuditLoading(true);
+    try {
+      const data = await operatorApi.auditLogs();
+      setAuditLogs(Array.isArray(data) ? data : []);
+      setApiError('');
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
 
-  // S11: Vận hành mở ngăn thủ công & đánh dấu lỗi & giả lập online/offline
-  const handleManualOpen = (lockerId, compNumber, reason) => {
-    appendAuditLog('MANUAL_OPEN', `Mở thủ công ${lockerId} · Ngăn #${compNumber} — Lý do: ${reason}`, 'Trần Ngọc Lan', 'OPERATOR');
-  };
+  const loadAdminUsers = useCallback(async () => {
+    if (!getSavedToken()) return;
+    setUsersLoading(true);
+    try {
+      const data = await adminApi.listUsers();
+      setAdminUsers(Array.isArray(data) ? data : []);
+      setApiError('');
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
 
-  const handleToggleCompartmentFault = (lockerId, compNumber) => {
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== lockerId
-          ? l
-          : {
-              ...l,
-              compartments: l.compartments.map((c) =>
-                c.number === compNumber ? { ...c, status: c.status === 'FAULT' ? 'FREE' : 'FAULT' } : c
-              ),
-            }
-      )
-    );
-    appendAuditLog('COMPARTMENT_STATUS', `Cập nhật trạng thái lỗi/trống cho ${lockerId} · Ngăn #${compNumber}.`, 'Trần Ngọc Lan', 'OPERATOR');
-  };
+  // Xử lý tự động khi JWT hết hạn (401)
+  useEffect(() => {
+    setUnauthorizedHandler((msg) => {
+      setCurrentUser(null);
+      setDeliveries([]);
+      setLockers([]);
+      setSystemStatus(null);
+      setAuditLogs([]);
+      setAdminUsers([]);
+      setPendingDelivery(null);
+      setSessionNotice(msg || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      setActiveScreen('S1');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
-  const handleToggleLockerOnline = (lockerId) => {
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== lockerId
-          ? l
-          : {
-              ...l,
-              status: l.status === 'ONLINE' ? 'OFFLINE' : 'ONLINE',
-              lastHeartbeat: l.status === 'ONLINE' ? 'Mất 3 heartbeat liên tiếp' : 'Vừa kết nối lại',
-            }
-      )
-    );
-    appendAuditLog('LOCKER_HEARTBEAT', `Thay đổi trạng thái kết nối tủ ${lockerId}.`, 'Hệ thống (MQTT)', 'SYSTEM');
-  };
-
-  // S12: Thu hồi hàng quá hạn 72h
-  const handleOperatorReleaseExpired = (deliveryId) => {
-    handleCompletePickup(deliveryId);
-  };
-
-  // S14: Admin quản lý tài khoản
-  const handleAdminCreateUser = (data) => {
-    setUsers((prev) => [{ id: prev.length + 1, ...data, active: true, createdAt: getNowLabel() }, ...prev]);
-    appendAuditLog('ADMIN_USER_CREATE', `Tạo tài khoản ${data.email} với vai trò ${data.role}.`, 'Quốc Trung (Admin)', 'ADMIN');
-  };
-
-  const handleAdminChangeRole = (userId, nextRole) => {
-    const u = users.find((x) => x.id === userId);
-    setUsers((prev) => prev.map((x) => (x.id === userId ? { ...x, role: nextRole } : x)));
-    appendAuditLog('ADMIN_USER_UPDATE', `Đổi vai trò của ${u?.email} sang ${nextRole}.`, 'Quốc Trung (Admin)', 'ADMIN');
-  };
-
-  const handleAdminToggleActive = (userId) => {
-    const u = users.find((x) => x.id === userId);
-    setUsers((prev) => prev.map((x) => (x.id === userId ? { ...x, active: !x.active } : x)));
-    appendAuditLog('ADMIN_USER_LOCK', `${u?.active ? 'Khóa' : 'Mở khóa'} tài khoản ${u?.email}.`, 'Quốc Trung (Admin)', 'ADMIN');
-  };
-
-  // S15: Admin thêm tủ & chỉnh cỡ ngăn
-  const handleAddLocker = ({ id, name, location }) => {
-    const newLocker = {
-      id,
-      name,
-      location,
-      status: 'ONLINE',
-      lastHeartbeat: 'Vừa thêm mới',
-      compartments: [
-        { number: 1, size: 'SMALL', status: 'FREE' },
-        { number: 2, size: 'SMALL', status: 'FREE' },
-        { number: 3, size: 'MEDIUM', status: 'FREE' },
-        { number: 4, size: 'MEDIUM', status: 'FREE' },
-        { number: 5, size: 'LARGE', status: 'FREE' },
-        { number: 6, size: 'LARGE', status: 'FREE' },
-      ],
-    };
-    setLockers((prev) => [...prev, newLocker]);
-    appendAuditLog('ADMIN_LOCKER_CREATE', `Thêm tủ mới ${id} (${name}) gồm 6 ngăn.`, 'Quốc Trung (Admin)', 'ADMIN');
-  };
-
-  const handleUpdateCompartmentSize = (lockerId, compNumber, size) => {
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.id !== lockerId
-          ? l
-          : {
-              ...l,
-              compartments: l.compartments.map((c) => (c.number === compNumber ? { ...c, size } : c)),
-            }
-      )
-    );
-    appendAuditLog('ADMIN_LOCKER_UPDATE', `Đổi cỡ ngăn ${lockerId} · #${compNumber} sang ${size}.`, 'Quốc Trung (Admin)', 'ADMIN');
-  };
-
-  const handleAddCompartment = (lockerId) => {
-    setLockers((prev) =>
-      prev.map((l) => {
-        if (l.id !== lockerId || l.compartments.length >= 9) return l;
-        const nextNum = l.compartments.length + 1;
-        return {
-          ...l,
-          compartments: [...l.compartments, { number: nextNum, size: 'MEDIUM', status: 'FREE' }],
-        };
+  // Kiểm tra phiên lưu sẵn khi tải lại trang
+  useEffect(() => {
+    if (!getSavedToken()) return;
+    authApi
+      .me()
+      .then((user) => {
+        setCurrentUser(user);
+        saveSession(getSavedToken(), user);
       })
-    );
-    appendAuditLog('ADMIN_LOCKER_UPDATE', `Thêm 1 ngăn mới cho tủ ${lockerId}.`, 'Quốc Trung (Admin)', 'ADMIN');
+      .catch(() => {
+        // 401 đã được unauthorizedHandler xử lý
+      });
+  }, []);
+
+  // Tự tải dữ liệu thật mỗi khi đổi màn hình
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = currentUser.role;
+
+    if (['S5', 'S6'].includes(activeScreen) && role === 'RECIPIENT') {
+      loadDeliveries();
+    } else if (activeScreen === 'S7' && role === 'COURIER') {
+      loadLockers();
+    } else if (activeScreen === 'S9' && role === 'COURIER') {
+      loadDeliveries();
+    } else if (activeScreen === 'S10' && (role === 'OPERATOR' || role === 'ADMIN')) {
+      loadSystemDashboard();
+    } else if (activeScreen === 'S11' && (role === 'OPERATOR' || role === 'ADMIN')) {
+      loadLockers();
+      loadDeliveries(true);
+    } else if (activeScreen === 'S12' && (role === 'OPERATOR' || role === 'ADMIN')) {
+      loadDeliveries();
+    } else if (activeScreen === 'S13' && (role === 'OPERATOR' || role === 'ADMIN')) {
+      loadAuditLogs();
+    } else if (activeScreen === 'S14' && role === 'ADMIN') {
+      loadAdminUsers();
+    } else if (activeScreen === 'S15' && role === 'ADMIN') {
+      loadLockers();
+    }
+  }, [
+    activeScreen,
+    currentUser,
+    loadAdminUsers,
+    loadAuditLogs,
+    loadDeliveries,
+    loadLockers,
+    loadSystemDashboard,
+  ]);
+
+  const handleAuthSuccess = (token, user) => {
+    saveSession(token, user);
+    setCurrentUser(user);
+    setSessionNotice('');
+    setApiError('');
+    setPendingDelivery(null);
+    setActiveScreen(getDefaultScreenForRole(user.role));
   };
+
+  const handleLogout = () => {
+    clearSession();
+    setCurrentUser(null);
+    setDeliveries([]);
+    setLockers([]);
+    setSystemStatus(null);
+    setAuditLogs([]);
+    setAdminUsers([]);
+    setPendingDelivery(null);
+    setSessionNotice('Bạn đã đăng xuất thành công.');
+    setActiveScreen('S1');
+  };
+
+  // Kiểm tra phân quyền hiển thị rõ ràng trước khi gọi API
+  const isProtectedScreen = !['S1', 'S2', 'S3', 'S4'].includes(activeScreen);
+  const isRecipientScreen = ['S5', 'S6'].includes(activeScreen);
+  const isCourierScreen = ['S7', 'S8', 'S9'].includes(activeScreen);
+  const isOperatorScreen = ['S10', 'S11', 'S12', 'S13'].includes(activeScreen);
+  const isAdminScreen = ['S14', 'S15'].includes(activeScreen);
+
+  const roleMismatchMsg = (() => {
+    if (!currentUser || !isProtectedScreen) return '';
+    if (isRecipientScreen && currentUser.role !== 'RECIPIENT') {
+      return 'Màn hình này dành cho Người nhận (RECIPIENT). Hãy đổi sang tài khoản recipient tại S1.';
+    }
+    if (isCourierScreen && currentUser.role !== 'COURIER') {
+      return 'Màn hình này dành cho Shipper (COURIER). Hãy đổi sang tài khoản courier tại S1.';
+    }
+    if (isOperatorScreen && currentUser.role !== 'OPERATOR' && currentUser.role !== 'ADMIN') {
+      return 'Màn hình này dành cho Nhân viên vận hành (OPERATOR) hoặc Admin. Hãy đổi tài khoản tại S1.';
+    }
+    if (isAdminScreen && currentUser.role !== 'ADMIN') {
+      return 'Màn hình này chỉ dành cho Quản trị viên (ADMIN). Hãy đổi sang tài khoản admin tại S1.';
+    }
+    return '';
+  })();
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-200 ${viewportMode === 'mobile' ? 'pb-6' : 'pb-20 md:pb-10'} ${theme.pageBg}`}>
-      {/* Thanh duyệt đủ 5 nhóm vai trò (S1–S15) + Nút xem Máy tính / Điện thoại */}
+      {/* Thanh duyệt nhanh 5 nhóm vai trò + Nút xem Máy tính / Điện thoại */}
       <div className="bg-[#0B1120] text-blue-100 border-b border-blue-950 px-4 py-2">
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -518,7 +412,7 @@ export default function App() {
               />
               <div className="min-w-0">
                 <div className={`font-extrabold text-base leading-tight truncate ${theme.headerHeading}`}>Smart Locker</div>
-                <div className={`text-xs truncate ${theme.headerMuted}`}>15 màn hình · Navy &amp; Cam 3D</div>
+                <div className={`text-xs truncate ${theme.headerMuted}`}>15 màn hình · Kết nối Backend &amp; Wokwi thật</div>
               </div>
             </div>
 
@@ -545,11 +439,11 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => setActiveScreen('S4')}
+              onClick={() => setActiveScreen(currentUser ? 'S4' : 'S1')}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 cursor-pointer ${theme.headerPill}`}
             >
               <Box className="w-3.5 h-3.5" aria-hidden="true" />
-              {ROLE_LABELS[currentUser.role]}
+              {currentUser ? ROLE_LABELS[currentUser.role] || currentUser.role : 'Đăng nhập'}
             </button>
           </div>
         </header>
@@ -570,26 +464,84 @@ export default function App() {
               </h1>
             </div>
             <p className={`text-xs hidden @2xl:block ${theme.mutedText}`}>
-              Tài khoản đang xem: <strong>{currentUser.fullName}</strong>
+              {currentUser ? (
+                <>
+                  Đang đăng nhập: <strong>{currentUser.fullName}</strong> ({currentUser.username})
+                </>
+              ) : (
+                'Chưa đăng nhập'
+              )}
             </p>
           </div>
 
+          {apiError && isProtectedScreen && !roleMismatchMsg && (
+            <div className="rounded-xl p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {apiError}
+              </span>
+              <button
+                type="button"
+                onClick={() => setApiError('')}
+                className="underline font-bold cursor-pointer shrink-0"
+              >
+                Ẩn
+              </button>
+            </div>
+          )}
+
+          {/* Chưa đăng nhập mà vào màn hình cần xác thực */}
+          {isProtectedScreen && !currentUser && (
+            <div className={`${theme.card} p-8 text-center space-y-3`}>
+              <h2 className={`text-base font-bold ${theme.heading}`}>Bạn cần đăng nhập để dùng chức năng này</h2>
+              <p className={`text-xs ${theme.mutedText}`}>
+                Chọn nhanh một trong 4 tài khoản mẫu (<code>recipient</code>, <code>courier</code>, <code>operator</code>, <code>admin</code>) tại màn hình Đăng nhập.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveScreen('S1')}
+                className={`min-h-[44px] px-5 py-2.5 text-sm font-bold cursor-pointer ${theme.primaryBtn}`}
+              >
+                Đi tới trang Đăng nhập (S1)
+              </button>
+            </div>
+          )}
+
+          {/* Sai vai trò */}
+          {roleMismatchMsg && (
+            <div className={`${theme.card} p-6 text-center space-y-3`}>
+              <h2 className={`text-base font-bold ${theme.heading}`}>Tài khoản hiện tại không thuộc nhóm màn hình này</h2>
+              <p className={`text-xs ${theme.mutedText}`}>{roleMismatchMsg}</p>
+              <button
+                type="button"
+                onClick={() => setActiveScreen('S1')}
+                className={`min-h-[44px] px-5 py-2.5 text-sm font-bold cursor-pointer ${theme.primaryBtn}`}
+              >
+                Đổi tài khoản tại S1
+              </button>
+            </div>
+          )}
+
+          {/* S1–S4: Tài khoản */}
           {['S1', 'S2', 'S3', 'S4'].includes(activeScreen) && (
             <ScreenAuthBundle
               screenId={activeScreen}
               theme={theme}
               currentUser={currentUser}
-              onLoginAsRole={handleLoginAsRole}
-              onRegisterRecipient={handleRegisterRecipient}
+              sessionNotice={sessionNotice}
+              onAuthSuccess={handleAuthSuccess}
+              onLogout={handleLogout}
               onNavigateScreen={setActiveScreen}
-              onAddLog={(action, detail) => appendAuditLog(action, detail)}
             />
           )}
 
-          {activeScreen === 'S5' && (
+          {/* S5–S6: Người nhận */}
+          {activeScreen === 'S5' && currentUser?.role === 'RECIPIENT' && (
             <ScreenS5RecipientOrders
               theme={theme}
               deliveries={deliveries}
+              loading={deliveriesLoading}
+              onRefresh={() => loadDeliveries()}
               onOpenOrderOtp={(orderId) => {
                 setSelectedDeliveryId(orderId);
                 setActiveScreen('S6');
@@ -597,55 +549,68 @@ export default function App() {
             />
           )}
 
-          {activeScreen === 'S6' && (
+          {activeScreen === 'S6' && currentUser?.role === 'RECIPIENT' && (
             <ScreenS6OtpPickup
               theme={theme}
               deliveries={deliveries}
               selectedDeliveryId={selectedDeliveryId}
               onSelectDelivery={setSelectedDeliveryId}
-              onVerifyOtp={handleVerifyOtp}
-              onResendOtp={(id) => handleResendOtp(id, false)}
-              onSimulateExpire={handleSimulateExpire}
-              onCompletePickup={handleCompletePickup}
+              onRefreshDeliveries={() => loadDeliveries()}
             />
           )}
 
-          {activeScreen === 'S7' && (
-            <ScreenS7ShipperDropoff theme={theme} lockers={lockers} onAllocateAndOpen={handleAllocateAndOpen} />
+          {/* S7–S9: Shipper */}
+          {activeScreen === 'S7' && currentUser?.role === 'COURIER' && (
+            <ScreenS7ShipperDropoff
+              theme={theme}
+              lockers={lockers}
+              loading={lockersLoading}
+              onRefreshLockers={() => loadLockers()}
+              onDeliveryCreated={(created) => {
+                setPendingDelivery(created);
+                setActiveScreen('S8');
+              }}
+            />
           )}
 
-          {activeScreen === 'S8' && (
+          {activeScreen === 'S8' && currentUser?.role === 'COURIER' && (
             <ScreenS8ConfirmDropoff
               theme={theme}
-              pendingDropoff={pendingDropoff}
-              onConfirmDoorClosed={handleConfirmDoorClosed}
-              onCancelDropoff={handleCancelDropoff}
-              onGoToS6={(orderId) => {
-                setSelectedDeliveryId(orderId);
-                setActiveScreen('S6');
+              pendingDelivery={pendingDelivery}
+              onCompleted={() => {
+                loadDeliveries(true);
+                loadLockers(true);
               }}
-              onGoToS7={() => setActiveScreen('S7')}
-              onGoToS9={() => setActiveScreen('S9')}
+              onGoToS7={() => {
+                setPendingDelivery(null);
+                setActiveScreen('S7');
+              }}
+              onGoToS9={() => {
+                setPendingDelivery(null);
+                setActiveScreen('S9');
+              }}
             />
           )}
 
-          {activeScreen === 'S9' && (
+          {activeScreen === 'S9' && currentUser?.role === 'COURIER' && (
             <ScreenS9ShipperHistory
               theme={theme}
               deliveries={deliveries}
-              onGoToS6={(orderId) => {
-                setSelectedDeliveryId(orderId);
-                setActiveScreen('S6');
-              }}
+              loading={deliveriesLoading}
+              onRefresh={() => loadDeliveries()}
               onGoToS7={() => setActiveScreen('S7')}
             />
           )}
 
-          {activeScreen === 'S10' && (
+          {/* S10–S13: Vận hành (OPERATOR hoặc ADMIN — 100% API thật) */}
+          {activeScreen === 'S10' && (currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN') && (
             <ScreenS10SystemStatus
               theme={theme}
+              systemStatus={systemStatus}
               lockers={lockers}
               deliveries={deliveries}
+              loading={systemLoading}
+              onRefresh={loadSystemDashboard}
               onGoToLockerMap={(lockerId) => {
                 setSelectedLockerForMap(lockerId);
                 setActiveScreen('S11');
@@ -654,46 +619,55 @@ export default function App() {
             />
           )}
 
-          {activeScreen === 'S11' && (
+          {activeScreen === 'S11' && (currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN') && (
             <ScreenS11LockerMap
               theme={theme}
               lockers={lockers}
               deliveries={deliveries}
               initialLockerId={selectedLockerForMap}
-              onManualOpen={handleManualOpen}
-              onToggleCompartmentFault={handleToggleCompartmentFault}
-              onToggleLockerOnline={handleToggleLockerOnline}
+              loading={lockersLoading}
+              onRefresh={() => {
+                loadLockers();
+                loadDeliveries(true);
+              }}
             />
           )}
 
-          {activeScreen === 'S12' && (
+          {activeScreen === 'S12' && (currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN') && (
             <ScreenS12OperatorOrders
               theme={theme}
               deliveries={deliveries}
-              onOperatorResetOtp={(id) => handleResendOtp(id, true)}
-              onOperatorReleaseExpired={handleOperatorReleaseExpired}
+              loading={deliveriesLoading}
+              onRefresh={() => loadDeliveries()}
             />
           )}
 
-          {activeScreen === 'S13' && <ScreenS13AuditLog theme={theme} auditLogs={auditLogs} />}
+          {activeScreen === 'S13' && (currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN') && (
+            <ScreenS13AuditLog
+              theme={theme}
+              auditLogs={auditLogs}
+              loading={auditLoading}
+              onRefresh={loadAuditLogs}
+            />
+          )}
 
-          {activeScreen === 'S14' && (
+          {/* S14–S15: Admin (chỉ ADMIN — 100% API thật) */}
+          {activeScreen === 'S14' && currentUser?.role === 'ADMIN' && (
             <ScreenS14AdminUsers
               theme={theme}
-              users={users}
-              onCreateUser={handleAdminCreateUser}
-              onChangeRole={handleAdminChangeRole}
-              onToggleActive={handleAdminToggleActive}
+              users={adminUsers}
+              currentUserId={currentUser.id}
+              loading={usersLoading}
+              onRefresh={loadAdminUsers}
             />
           )}
 
-          {activeScreen === 'S15' && (
+          {activeScreen === 'S15' && currentUser?.role === 'ADMIN' && (
             <ScreenS15AdminLockers
               theme={theme}
               lockers={lockers}
-              onAddLocker={handleAddLocker}
-              onUpdateCompartmentSize={handleUpdateCompartmentSize}
-              onAddCompartment={handleAddCompartment}
+              loading={lockersLoading}
+              onRefresh={() => loadLockers()}
             />
           )}
         </main>

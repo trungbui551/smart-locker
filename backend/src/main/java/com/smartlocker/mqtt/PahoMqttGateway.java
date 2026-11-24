@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -51,7 +52,7 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
     ) {
         this.eventHandler = eventHandler;
         this.objectMapper = objectMapper;
-        this.brokerUrl = brokerUrl;
+        this.brokerUrl = normalizeBrokerUrl(brokerUrl);
         this.username = username;
         this.password = password;
         this.topicPrefix = normalizePrefix(topicPrefix);
@@ -59,7 +60,31 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
 
     @PostConstruct
     public void start() {
+        connectAndSubscribe();
+    }
+
+    /**
+     * Tự kiểm tra và nối lại MQTT mỗi 10 giây nếu kết nối bị rớt giữa chừng (ví dụ rớt Wi-Fi hoặc EMQX Cloud ngắt).
+     */
+    @Scheduled(fixedDelay = 10000, initialDelay = 10000)
+    public void ensureConnected() {
+        if (!isConnected()) {
+            log.info("MQTT dang mat ket noi, thu ket noi lai toi {}...", brokerUrl);
+            connectAndSubscribe();
+        }
+    }
+
+    private synchronized void connectAndSubscribe() {
+        if (isConnected()) {
+            return;
+        }
         try {
+            if (client != null) {
+                try {
+                    client.close(true);
+                } catch (Exception ignored) {
+                }
+            }
             String clientId = "smart-locker-backend-" + UUID.randomUUID().toString().substring(0, 8);
             client = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
             client.setCallback(this);
@@ -67,8 +92,8 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
             MqttConnectOptions options = new MqttConnectOptions();
             options.setAutomaticReconnect(true);
             options.setCleanSession(true);
-            options.setConnectionTimeout(5);
-            options.setKeepAliveInterval(20);
+            options.setConnectionTimeout(10);
+            options.setKeepAliveInterval(30);
             if (!username.isBlank()) {
                 options.setUserName(username);
                 options.setPassword(password.toCharArray());
@@ -78,7 +103,7 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
             subscribeTopics();
             log.info("Da ket noi MQTT broker tai {} (prefix='{}')", brokerUrl, topicPrefix);
         } catch (Exception ex) {
-            log.warn("Chua ket noi duoc MQTT broker tai {}: {} (se tu ket noi lai)", brokerUrl, ex.getMessage());
+            log.warn("Chua ket noi duoc MQTT broker tai {}: {} (se tu ket noi lai sau 10s)", brokerUrl, ex.getMessage());
         }
     }
 
@@ -116,6 +141,26 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
     }
 
     @Override
+    public void publishDisplayMessage(String lockerId, String line1, String line2) {
+        if (!isConnected()) {
+            return;
+        }
+        try {
+            String topic = topicPrefix + "locker/" + lockerId + "/display";
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "line1", line1 == null ? "" : line1,
+                    "line2", line2 == null ? "" : line2
+            ));
+            MqttMessage msg = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
+            msg.setQos(0);
+            client.publish(topic, msg);
+            log.info("Da gui thong bao LCD {} -> {}", topic, payload);
+        } catch (Exception ex) {
+            log.warn("Khong the gui thong bao LCD toi {}: {}", lockerId, ex.getMessage());
+        }
+    }
+
+    @Override
     public boolean isConnected() {
         return client != null && client.isConnected();
     }
@@ -124,7 +169,8 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
     public void connectComplete(boolean reconnect, String serverURI) {
         if (reconnect) {
             log.info("Da tu ket noi lai MQTT broker {}", serverURI);
-            subscribeTopics();
+            // Chạy subscribe trên luồng riêng để tránh deadlock luồng callback của Eclipse Paho v3
+            new Thread(this::subscribeTopics, "mqtt-resubscribe").start();
         }
     }
 
@@ -138,21 +184,25 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
         try {
             String stripped = topicPrefix.isEmpty() ? topic : topic.replaceFirst("^" + topicPrefix, "");
             String[] parts = stripped.split("/");
-            if (parts.length != 3 || !"locker".equals(parts[0])) {
+            if (parts.length < 3 || !"locker".equals(parts[0])) {
                 return;
             }
             String lockerId = parts[1];
             String channel = parts[2];
             String raw = new String(message.getPayload(), StandardCharsets.UTF_8).replace("\uFEFF", "").trim();
 
-            if ("heartbeat".equals(channel)) {
+            if (parts.length == 3 && "heartbeat".equals(channel)) {
                 eventHandler.handleHeartbeat(lockerId);
-            } else if ("event".equals(channel)) {
+            } else if (parts.length == 3 && "event".equals(channel)) {
                 JsonNode node = objectMapper.readTree(raw);
                 String type = node.has("type") ? node.get("type").asText() : null;
                 Integer compartment = node.has("compartment") ? node.get("compartment").asInt() : null;
                 String correlationId = node.has("correlationId") ? node.get("correlationId").asText() : null;
                 eventHandler.handleEvent(lockerId, type, compartment, correlationId);
+            } else if (parts.length == 4 && "otp".equals(channel) && "submit".equals(parts[3])) {
+                JsonNode node = objectMapper.readTree(raw);
+                String otp = node.has("otp") ? node.get("otp").asText() : "";
+                eventHandler.handleKeypadOtpSubmit(lockerId, otp);
             }
         } catch (Exception ex) {
             log.error("Loi xu ly tin nhan MQTT tren topic {}: {}", topic, ex.getMessage());
@@ -171,9 +221,28 @@ public class PahoMqttGateway implements MqttPublisher, MqttCallbackExtended {
         try {
             client.subscribe(topicPrefix + "locker/+/event", 1);
             client.subscribe(topicPrefix + "locker/+/heartbeat", 0);
+            client.subscribe(topicPrefix + "locker/+/otp/submit", 1);
         } catch (MqttException ex) {
             log.error("Khong the subscribe MQTT topic: {}", ex.getMessage());
         }
+    }
+
+    // Chuẩn hóa địa chỉ broker: tự thêm ssl:// cho cổng 8883 hoặc đổi mqtts:// -> ssl:// cho Eclipse Paho
+    private String normalizeBrokerUrl(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "tcp://localhost:1883";
+        }
+        String url = raw.trim();
+        if (url.startsWith("mqtts://")) {
+            return "ssl://" + url.substring("mqtts://".length());
+        }
+        if (url.startsWith("mqtt://")) {
+            return "tcp://" + url.substring("mqtt://".length());
+        }
+        if (!url.contains("://")) {
+            return url.endsWith(":8883") ? "ssl://" + url : "tcp://" + url;
+        }
+        return url;
     }
 
     private String normalizePrefix(String raw) {

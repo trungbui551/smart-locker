@@ -40,6 +40,7 @@ public class MqttEventHandler {
     private final UserRepository userRepository;
     private final OtpService otpService;
     private final AuditService auditService;
+    private final MqttPublisher mqttPublisher;
 
     public MqttEventHandler(
             LockerRepository lockerRepository,
@@ -48,7 +49,8 @@ public class MqttEventHandler {
             DeliveryRepository deliveryRepository,
             UserRepository userRepository,
             OtpService otpService,
-            AuditService auditService
+            AuditService auditService,
+            MqttPublisher mqttPublisher
     ) {
         this.lockerRepository = lockerRepository;
         this.compartmentRepository = compartmentRepository;
@@ -57,6 +59,7 @@ public class MqttEventHandler {
         this.userRepository = userRepository;
         this.otpService = otpService;
         this.auditService = auditService;
+        this.mqttPublisher = mqttPublisher;
     }
 
     @Transactional
@@ -74,6 +77,15 @@ public class MqttEventHandler {
 
         if (wasOffline) {
             auditService.record(null, "LOCKER_ONLINE", "Tủ " + locker.getId() + " đã có heartbeat trở lại (ONLINE).");
+        }
+    }
+
+    @Transactional
+    public void handleKeypadOtpSubmit(String lockerId, String otpCode) {
+        String normalizedLockerId = lockerId.trim().toUpperCase();
+        boolean ok = otpService.verifyKeypadOtpForLocker(normalizedLockerId, otpCode);
+        if (!ok) {
+            mqttPublisher.publishDisplayMessage(normalizedLockerId, "SAI MA OTP!", "Vui long thu lai");
         }
     }
 

@@ -17,11 +17,20 @@ public class NoOpMqttPublisher implements MqttPublisher {
     public record PublishedOpen(String lockerId, int compartmentNumber, String correlationId) {
     }
 
+    public record PublishedDisplay(String lockerId, String line1, String line2) {
+    }
+
     private final List<PublishedOpen> sentCommands = new CopyOnWriteArrayList<>();
+    private final List<PublishedDisplay> displayMessages = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishOpenCommand(String lockerId, int compartmentNumber, String correlationId) {
         sentCommands.add(new PublishedOpen(lockerId, compartmentNumber, correlationId));
+    }
+
+    @Override
+    public void publishDisplayMessage(String lockerId, String line1, String line2) {
+        displayMessages.add(new PublishedDisplay(lockerId, line1, line2));
     }
 
     @Override
@@ -33,7 +42,12 @@ public class NoOpMqttPublisher implements MqttPublisher {
         return sentCommands;
     }
 
+    public List<PublishedDisplay> getDisplayMessages() {
+        return displayMessages;
+    }
+
     public void clear() {
         sentCommands.clear();
+        displayMessages.clear();
     }
 }

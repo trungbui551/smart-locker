@@ -2,52 +2,100 @@ import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
-  Radio,
+  RefreshCw,
   Unlock,
-  WifiOff,
   Wrench,
 } from 'lucide-react';
+import { operatorApi } from '../api/client';
 import { getSizeLabel } from '../data/mockData';
 
+function formatTime(iso) {
+  if (!iso) return 'Chưa có nhịp sống';
+  try {
+    return new Date(iso).toLocaleString('vi-VN', { hour12: false });
+  } catch {
+    return iso;
+  }
+}
+
 /**
- * Màn hình S11 — Danh sách tủ & Sơ đồ ngăn trực quan (Nhân viên vận hành & Admin)
+ * Màn hình S11 — Sơ đồ Tủ & Ngăn trực quan (nối API thật: mở ngăn thủ công qua MQTT Wokwi & đổi trạng thái FAULT/FREE)
  */
 export default function ScreenS11LockerMap({
   theme: t,
   lockers,
   deliveries,
   initialLockerId,
-  onManualOpen,
-  onToggleCompartmentFault,
-  onToggleLockerOnline,
+  loading,
+  onRefresh,
 }) {
-  const [selectedLockerId, setSelectedLockerId] = useState(initialLockerId || lockers[0]?.id);
+  const [selectedLockerId, setSelectedLockerId] = useState(initialLockerId || lockers[0]?.id || '');
   const [selectedCompNum, setSelectedCompNum] = useState(null);
   const [reason, setReason] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const locker = lockers.find((l) => l.id === selectedLockerId) || lockers[0];
-  const comp = locker?.compartments.find((c) => c.number === selectedCompNum);
+  const comp = locker?.compartments?.find((c) => c.number === selectedCompNum);
   const linkedOrder = comp
     ? deliveries.find(
         (d) =>
           d.lockerId === locker.id &&
           d.compartmentNumber === comp.number &&
-          (d.status === 'READY' || d.status === 'EXPIRED')
+          (d.status === 'READY' || d.status === 'STORING' || d.status === 'EXPIRED')
       )
     : null;
 
-  const handleManualOpenSubmit = (e) => {
+  const handleManualOpenSubmit = async (e) => {
     e.preventDefault();
-    if (!comp) return;
+    if (!locker || !comp) return;
     if (!reason.trim()) {
-      setFeedback('Vui lòng nhập lý do mở ngăn thủ công để ghi vào nhật ký thao tác.');
+      setFeedback({ type: 'error', text: 'Vui lòng nhập lý do mở ngăn thủ công để ghi vào nhật ký thao tác.' });
       return;
     }
-    onManualOpen(locker.id, comp.number, reason.trim());
-    setFeedback(`Đã gửi lệnh mở thủ công ${locker.id} · Ngăn #${comp.number} và ghi vào Nhật ký (S13).`);
-    setReason('');
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      const cmd = await operatorApi.manualOpen(locker.id, comp.number, reason.trim());
+      setFeedback({
+        type: 'success',
+        text: `Đã gửi lệnh mở thủ công ${locker.id} · Ngăn #${comp.number} tới tủ Wokwi (mã lệnh: ${cmd.correlationId.slice(0, 8)}...) và ghi Nhật ký (S13).`,
+      });
+      setReason('');
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const handleToggleFault = async () => {
+    if (!locker || !comp) return;
+    const nextStatus = comp.status === 'FAULT' ? 'FREE' : 'FAULT';
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      await operatorApi.updateCompartmentStatus(locker.id, comp.number, nextStatus);
+      setFeedback({
+        type: 'success',
+        text: `Đã cập nhật ${locker.id} · Ngăn #${comp.number} sang ${nextStatus} và ghi Nhật ký (S13).`,
+      });
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!locker) {
+    return (
+      <div className={`${t.card} p-8 text-center text-sm ${t.mutedText}`}>
+        Chưa có dữ liệu tủ khóa từ Backend. Hãy bấm Làm mới hoặc kiểm tra kết nối.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -63,7 +111,7 @@ export default function ScreenS11LockerMap({
                 onClick={() => {
                   setSelectedLockerId(l.id);
                   setSelectedCompNum(null);
-                  setFeedback('');
+                  setFeedback(null);
                 }}
                 className={`min-h-[42px] px-3.5 py-2 text-xs font-bold inline-flex items-center gap-2 cursor-pointer ${
                   active ? t.primaryBtn : t.secondaryBtn
@@ -74,7 +122,9 @@ export default function ScreenS11LockerMap({
                     l.status === 'ONLINE' ? 'bg-emerald-400' : 'bg-rose-400'
                   }`}
                 />
-                <span>{l.id} ({l.compartments.length} ngăn)</span>
+                <span>
+                  {l.id} ({(l.compartments || []).length} ngăn)
+                </span>
               </button>
             );
           })}
@@ -82,20 +132,12 @@ export default function ScreenS11LockerMap({
 
         <button
           type="button"
-          onClick={() => onToggleLockerOnline(locker.id)}
-          className={`min-h-[40px] px-3.5 py-2 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${t.subtleBtn}`}
+          onClick={onRefresh}
+          disabled={loading}
+          className={`min-h-[40px] px-3.5 py-2 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${t.subtleBtn}`}
         >
-          {locker.status === 'ONLINE' ? (
-            <>
-              <WifiOff className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
-              Giả lập mất 3 heartbeat (Offline)
-            </>
-          ) : (
-            <>
-              <Radio className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-              Giả lập có heartbeat lại (Online)
-            </>
-          )}
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+          Làm mới từ Backend
         </button>
       </div>
 
@@ -106,7 +148,7 @@ export default function ScreenS11LockerMap({
             <div>
               <h2 className={`text-lg font-bold ${t.heading}`}>{locker.name}</h2>
               <p className={`text-xs ${t.mutedText}`}>
-                {locker.location} · Heartbeat: {locker.lastHeartbeat}
+                {locker.location} · Nhịp cuối: {formatTime(locker.lastHeartbeatAt)}
               </p>
             </div>
             <span
@@ -118,7 +160,6 @@ export default function ScreenS11LockerMap({
             </span>
           </div>
 
-          {/* Chú giải màu */}
           <div className="flex flex-wrap gap-3 text-xs">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-3 h-3 rounded bg-emerald-600" /> Trống (FREE)
@@ -133,7 +174,7 @@ export default function ScreenS11LockerMap({
 
           {/* Lưới ngăn 3D */}
           <div className="grid grid-cols-2 @2xl:grid-cols-3 gap-3">
-            {locker.compartments.map((c) => {
+            {(locker.compartments || []).map((c) => {
               const isSelected = selectedCompNum === c.number;
               const styleClass =
                 c.status === 'FREE'
@@ -148,7 +189,7 @@ export default function ScreenS11LockerMap({
                   type="button"
                   onClick={() => {
                     setSelectedCompNum(c.number);
-                    setFeedback('');
+                    setFeedback(null);
                   }}
                   className={`btn-3d p-3.5 rounded-2xl border-2 text-left cursor-pointer ${styleClass} ${
                     isSelected ? 'ring-3 ring-[#EA580C] ring-offset-2' : ''
@@ -179,13 +220,15 @@ export default function ScreenS11LockerMap({
 
           {!comp ? (
             <div className={`${t.subCard} p-6 text-center text-xs ${t.mutedText}`}>
-              Hãy bấm vào một ô ngăn bất kỳ trên sơ đồ (ví dụ <strong>#3</strong> hoặc <strong>#5</strong>) để xem chi tiết, mở thủ công hoặc xử lý lỗi.
+              Hãy bấm vào một ô ngăn bất kỳ trên sơ đồ để xem chi tiết, gửi lệnh mở thủ công tới Wokwi hoặc xử lý lỗi.
             </div>
           ) : (
             <div className="space-y-4">
               <div className={`${t.otpContainer} p-4 flex items-center justify-between`}>
                 <div>
-                  <div className="text-xs text-blue-200">{locker.id} · Cỡ {getSizeLabel(comp.size)}</div>
+                  <div className="text-xs text-blue-200">
+                    {locker.id} · Cỡ {getSizeLabel(comp.size)}
+                  </div>
                   <div className="text-xl font-extrabold font-mono-code text-[#FDBA74]">
                     Ngăn số #{comp.number}
                   </div>
@@ -205,9 +248,15 @@ export default function ScreenS11LockerMap({
 
               {linkedOrder && (
                 <div className={`${t.subCard} p-3.5 text-xs space-y-1`}>
-                  <div className={`font-bold ${t.heading}`}>Đơn hàng đang chứa: {linkedOrder.id}</div>
-                  <div className={t.bodyText}>Người nhận: {linkedOrder.recipientName}</div>
-                  <div className={t.mutedText}>{linkedOrder.storageRemaining}</div>
+                  <div className={`font-bold ${t.heading}`}>
+                    Đơn hàng đang chứa: #{linkedOrder.id} ({linkedOrder.status})
+                  </div>
+                  <div className={t.bodyText}>
+                    Người nhận: {linkedOrder.recipientName} ({linkedOrder.recipientUsername})
+                  </div>
+                  <div className={t.mutedText}>
+                    Shipper: {linkedOrder.courierName}
+                  </div>
                 </div>
               )}
 
@@ -227,21 +276,23 @@ export default function ScreenS11LockerMap({
                 </div>
                 <button
                   type="submit"
-                  disabled={locker.status !== 'ONLINE'}
+                  disabled={submitting || locker.status !== 'ONLINE'}
                   className={`w-full min-h-[46px] px-4 py-2.5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer ${t.primaryBtn}`}
                 >
                   <Unlock className="w-4 h-4" aria-hidden="true" />
-                  Mở ngăn thủ công (có ghi log)
+                  {locker.status !== 'ONLINE'
+                    ? 'Tủ đang Offline — không thể mở'
+                    : submitting
+                    ? 'Đang gửi lệnh MQTT...'
+                    : 'Mở ngăn thủ công (gửi MQTT thật)'}
                 </button>
               </form>
 
               <button
                 type="button"
-                onClick={() => {
-                  onToggleCompartmentFault(locker.id, comp.number);
-                  setFeedback(`Đã cập nhật trạng thái lỗi/trống cho ${locker.id} · Ngăn #${comp.number}.`);
-                }}
-                className={`w-full min-h-[44px] px-4 py-2.5 text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer ${t.secondaryBtn}`}
+                disabled={submitting}
+                onClick={handleToggleFault}
+                className={`w-full min-h-[44px] px-4 py-2.5 text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${t.secondaryBtn}`}
               >
                 {comp.status === 'FAULT' ? (
                   <>
@@ -257,9 +308,13 @@ export default function ScreenS11LockerMap({
               </button>
 
               {feedback && (
-                <div className={`p-3 rounded-xl border text-xs font-medium flex items-start gap-2 ${t.alertInfo}`}>
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#FDBA74]" aria-hidden="true" />
-                  <span>{feedback}</span>
+                <div
+                  className={`p-3 rounded-xl border text-xs font-medium flex items-start gap-2 ${
+                    feedback.type === 'error' ? t.alertError : t.alertSuccess
+                  }`}
+                >
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{feedback.text}</span>
                 </div>
               )}
             </div>

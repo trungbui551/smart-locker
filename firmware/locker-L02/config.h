@@ -20,5 +20,5 @@
 // Tiền tố ngẫu nhiên cho topic (để khớp 100% với MQTT_TOPIC_PREFIX trong file .env của Backend)
 #define MQTT_TOPIC_PREFIX "sl-demo-change-me/"
 
-// Chu kỳ gửi nhịp sống heartbeat (ms) — khớp với Backend (10 giây; mất 3 nhịp -> OFFLINE)
-#define HEARTBEAT_INTERVAL_MS 10000
+// Chu kỳ gửi nhịp sống heartbeat (ms) — 5 giây để Wokwi chạy 50% tốc độ vẫn luôn ONLINE
+#define HEARTBEAT_INTERVAL_MS 5000

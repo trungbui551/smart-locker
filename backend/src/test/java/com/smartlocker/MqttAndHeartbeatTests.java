@@ -224,6 +224,54 @@ class MqttAndHeartbeatTests {
                 .anyMatch(e -> "MANUAL_OPEN".equals(e.getAction()) && e.getDetail().contains("L42"));
     }
 
+    @Test
+    void keypadOtpSubmitOpensCompartmentWhenValidAndDisplaysErrorWhenInvalid() throws Exception {
+        mqttPublisher.clear();
+        String adminToken = login("admin", "Locker@123");
+        String courierToken = login("courier", "Locker@123");
+        String recipientToken = login("recipient", "Locker@123");
+
+        mockMvc.perform(post("/api/admin/lockers")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"L43\",\"name\":\"Tủ Bàn Phím\",\"location\":\"Lab\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult createRes = mockMvc.perform(post("/api/deliveries")
+                        .header("Authorization", "Bearer " + courierToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockerId\":\"L43\",\"recipientIdentifier\":\"recipient\",\"packageSize\":\"SMALL\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        JsonNode created = objectMapper.readTree(createRes.getResponse().getContentAsString());
+        long deliveryId = created.get("id").asLong();
+        String dropCorr = created.get("correlationId").asText();
+
+        // Hoàn tất gửi hàng -> đơn chuyển READY + có OTP
+        mqttEventHandler.handleEvent("L43", "door_opened", 1, dropCorr);
+        mqttEventHandler.handleEvent("L43", "door_closed", 1, dropCorr);
+
+        MvcResult otpRes = mockMvc.perform(get("/api/deliveries/" + deliveryId + "/otp")
+                        .header("Authorization", "Bearer " + recipientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String validOtp = objectMapper.readTree(otpRes.getResponse().getContentAsString()).get("otpCode").asText();
+        String wrongOtp = validOtp.equals("123456") ? "654321" : "123456";
+
+        mqttPublisher.clear();
+
+        // Nhập sai trên bàn phím tủ -> gửi thông báo lỗi lên màn hình LCD
+        mqttEventHandler.handleKeypadOtpSubmit("L43", wrongOtp);
+        assertThat(mqttPublisher.getSentCommands()).isEmpty();
+        assertThat(mqttPublisher.getDisplayMessages())
+                .anyMatch(m -> m.lockerId().equals("L43") && m.line1().contains("SAI MA OTP"));
+
+        // Nhập đúng 6 số trên bàn phím tủ -> tự gửi lệnh cmd/open cho ngăn #1
+        mqttEventHandler.handleKeypadOtpSubmit("L43", validOtp);
+        assertThat(mqttPublisher.getSentCommands())
+                .anyMatch(c -> c.lockerId().equals("L43") && c.compartmentNumber() == 1);
+    }
+
     private String login(String identifier, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
