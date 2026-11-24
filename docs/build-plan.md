@@ -178,9 +178,9 @@
 **Đọc trước:** PRD v2 Feature 6, 7, 8; Tech Spec bảng `audit_events`
 
 **Việc cần làm:**
-- [ ] Trang **Quản lý trạng thái hệ thống**: tình trạng Backend/Database/MQTT, số tủ online/offline, tỷ lệ ngăn đang dùng, cảnh báo `fault`, đơn quá hạn 72h
-- [ ] Màn hình Vận hành: sơ đồ ngăn theo tủ và cỡ, mở ngăn thủ công (có log), hỗ trợ cấp lại OTP, đánh dấu ngăn lỗi, xem nhật ký thao tác
-- [ ] Màn hình Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
+- [x] Trang **Quản lý trạng thái hệ thống**: tình trạng Backend/Database/MQTT, số tủ online/offline, tỷ lệ ngăn đang dùng, cảnh báo `fault`, đơn quá hạn 72h
+- [x] Màn hình Vận hành: sơ đồ ngăn theo tủ và cỡ, mở ngăn thủ công (có log), hỗ trợ cấp lại OTP, đánh dấu ngăn lỗi, xem nhật ký thao tác
+- [x] Màn hình Admin: quản lý tài khoản (tạo/sửa/khóa/gán vai trò) và quản lý tủ/ngăn
 
 **Done khi:**
 - ✅ Dừng tủ Wokwi thấy trạng thái hệ thống cập nhật `OFFLINE`
