@@ -195,8 +195,8 @@
 **Đọc trước:** PRD v2 mục ④, ⑥; Tech Spec mục ⑤, ⑥, ⑦
 
 **Việc cần làm:**
-- [ ] Cấu hình dịch vụ hosting miễn phí (HTTPS) + PostgreSQL + MQTT broker công khai có xác thực (tắt `allow_anonymous`, đặt tiền tố topic ngẫu nhiên)
-- [ ] Thiết lập đầy đủ biến môi trường (JWT, OTP, DB, MQTT, Gmail, SMS) trên hosting
+- [x] Cấu hình dịch vụ hosting miễn phí (HTTPS) + PostgreSQL + MQTT broker công khai có xác thực (tắt `allow_anonymous`, đặt tiền tố topic ngẫu nhiên)
+- [x] Thiết lập đầy đủ biến môi trường (JWT, OTP, DB, MQTT, Gmail, SMS) trên hosting
 - [ ] Kiểm thử toàn bộ luồng end-to-end từ điện thoại ngoài mạng local + tủ Wokwi
 
 **Done khi:**

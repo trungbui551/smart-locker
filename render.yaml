@@ -1,0 +1,75 @@
+# Cấu hình triển khai 1-click lên Render (gói Free: Backend Spring Boot + PostgreSQL 16)
+# Hướng dẫn chi tiết xem tại docs/deploy-guide.md
+
+databases:
+  - name: smart-locker-db
+    databaseName: locker
+    user: locker
+    plan: free
+    region: singapore
+
+services:
+  - type: web
+    name: smart-locker-api
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      # Kết nối tự động tới PostgreSQL của Render
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: smart-locker-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: smart-locker-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: smart-locker-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: smart-locker-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: smart-locker-db
+          property: password
+
+      # Khóa bí mật tự sinh ngẫu nhiên an toàn (không lộ trên GitHub)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OTP_SECRET
+        generateValue: true
+
+      # Cho phép Web PWA trên Vercel + localhost gọi API (cập nhật tên miền Vercel sau khi deploy Web)
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:5173
+
+      # Cấu hình MQTT bảo mật (EMQX Cloud TLS 8883 — bạn tự điền giá trị thật trên Render Dashboard)
+      - key: MQTT_ENABLED
+        value: "true"
+      - key: MQTT_BROKER_URL
+        sync: false
+      - key: MQTT_USERNAME
+        sync: false
+      - key: MQTT_PASSWORD
+        sync: false
+      - key: MQTT_TOPIC_PREFIX
+        sync: false
+
+      # Cấu hình Gmail (tùy chọn: để "log" nếu chỉ demo nhanh, hoặc "smtp" nếu muốn gửi Gmail thật)
+      - key: MAIL_MODE
+        value: log
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+
+      # Tạo sẵn 4 tài khoản mẫu (recipient / courier / operator / admin) cho buổi demo
+      - key: APP_SEED_DEMO_USERS
+        value: "true"
