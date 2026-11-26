@@ -30,8 +30,13 @@ export default function ScreenAuthBundle({
   onLogout,
   onNavigateScreen,
 }) {
+  // Chế độ ứng dụng: 'web' | 'mobile' | 'desktop'
+  const appMode = import.meta.env.VITE_APP_MODE || 'web';
+  const isDesktopApp = appMode === 'desktop';
+  const isMobileApp = appMode === 'mobile';
+
   // S1 state
-  const [loginId, setLoginId] = useState('recipient');
+  const [loginId, setLoginId] = useState(isDesktopApp ? 'operator' : 'recipient');
   const [loginPw, setLoginPw] = useState('Locker@123');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -59,6 +64,21 @@ export default function ScreenAuthBundle({
     setLoading(true);
     try {
       const res = await authApi.login(identifier, password);
+      const role = res.user?.role;
+      // Khóa chế độ đăng nhập bản Desktop cho OPERATOR & ADMIN (PRD Feature 10)
+      if (isDesktopApp && role !== 'OPERATOR' && role !== 'ADMIN') {
+        setErrorMsg(
+          'Ứng dụng Desktop chỉ dành cho Nhân viên vận hành (OPERATOR) và Quản trị viên (ADMIN). Người nhận/Shipper vui lòng dùng Web hoặc App Android.'
+        );
+        return;
+      }
+      // Khóa chế độ đăng nhập bản Mobile Android cho RECIPIENT & COURIER (PRD Feature 9)
+      if (isMobileApp && role !== 'RECIPIENT' && role !== 'COURIER') {
+        setErrorMsg(
+          'Ứng dụng Android chỉ dành cho Người nhận và Shipper. Vận hành/Admin vui lòng dùng Web hoặc App Desktop.'
+        );
+        return;
+      }
       onAuthSuccess(res.token, res.user);
     } catch (err) {
       setErrorMsg(err.message);
@@ -157,11 +177,13 @@ export default function ScreenAuthBundle({
             </div>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'recipient', label: 'Người nhận' },
-                { id: 'courier', label: 'Shipper' },
-                { id: 'operator', label: 'Vận hành' },
-                { id: 'admin', label: 'Quản trị viên' },
-              ].map((acc) => (
+                { id: 'recipient', label: 'Người nhận', show: !isDesktopApp },
+                { id: 'courier', label: 'Shipper', show: !isDesktopApp },
+                { id: 'operator', label: 'Vận hành', show: !isMobileApp },
+                { id: 'admin', label: 'Quản trị viên', show: !isMobileApp },
+              ]
+                .filter((acc) => acc.show)
+                .map((acc) => (
                 <button
                   key={acc.id}
                   type="button"

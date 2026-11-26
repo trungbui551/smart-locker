@@ -229,9 +229,9 @@
 **Đọc trước:** PRD v2 Feature 10; giao diện React ở M7
 
 **Việc cần làm:**
-- [ ] Cấu hình Electron trong `desktop/` trỏ tới bản build của `web/`, gắn icon `logo.png`
-- [ ] Khóa chế độ đăng nhập bản Desktop cho 2 vai trò `OPERATOR` và `ADMIN`
-- [ ] Build và chạy thử ứng dụng Desktop trên Windows
+- [x] Cấu hình Electron trong `desktop/` trỏ tới bản build của `web/`, gắn icon `logo.png`
+- [x] Khóa chế độ đăng nhập bản Desktop cho 2 vai trò `OPERATOR` và `ADMIN`
+- [x] Build và chạy thử ứng dụng Desktop trên Windows
 
 **Done khi:**
 - ✅ Chạy ổn định như ứng dụng Windows độc lập, đồng bộ trực tiếp với Web và tủ Wokwi

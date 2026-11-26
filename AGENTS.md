@@ -55,7 +55,7 @@
 | Kiểm tra backend sống | mở `http://localhost:8080/actuator/health`, thấy `{"status":"UP"}` |
 | Build và chạy test backend | `cd backend` rồi `./mvnw -B verify` |
 | Chạy Android | `cd web; $env:VITE_APP_MODE="mobile"; npm run build; npx cap sync android` rồi `cd ..\android; .\gradlew.bat assembleDebug` |
-| Chạy desktop JavaFX | [điền khi khởi tạo `desktop/`] |
+| Chạy desktop Electron | `cd web; $env:VITE_APP_MODE="desktop"; npm run build; Copy-Item -Recurse -Force dist ..\desktop\renderer` rồi `cd ..\desktop; npm start` (đóng gói `.exe`: `npm run build:win`) |
 | Chạy mô phỏng tủ | Mở `firmware/` trong Wokwi (`diagram.json`); AI không chạy được Wokwi, tôi sẽ chạy tay |
 
 ---

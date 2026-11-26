@@ -1,0 +1,41 @@
+{
+  "name": "smart-locker-desktop",
+  "version": "1.0.0",
+  "description": "Smart Locker Desktop — Ung dung Windows cho Nhan vien van hanh va Quan tri vien",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.smartlocker.desktop",
+    "productName": "Smart Locker Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "assets/**/*",
+      "renderer/**/*"
+    ],
+    "win": {
+      "icon": "assets/logo.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "Smart-Locker-Desktop.exe"
+    }
+  }
+}
