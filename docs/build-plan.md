@@ -246,10 +246,10 @@
 **Đọc trước:** PRD v2 toàn bộ; Tech Spec v2; `docs/ai-log.md`
 
 **Việc cần làm:**
-- [ ] Viết `docs/test-acceptance.md` theo toàn bộ "Done khi" của PRD v2 rồi kiểm thử từng mục
-- [ ] Kiểm tra an toàn: phân quyền 4 vai trò, tự đăng ký không leo thang quyền, OTP không lộ trong DB/log, không có bí mật trong repo, MQTT online có xác thực
-- [ ] Cập nhật `docs/TEAM.md` (1 người) và tổng hợp `docs/ai-log.md` đầy đủ
-- [ ] Đóng gói tài liệu nộp (kế hoạch, use case, thiết kế, kiểm thử, báo cáo unit test)
+- [x] Viết `docs/test-acceptance.md` theo toàn bộ "Done khi" của PRD v2 rồi kiểm thử từng mục
+- [x] Kiểm tra an toàn: phân quyền 4 vai trò, tự đăng ký không leo thang quyền, OTP không lộ trong DB/log, không có bí mật trong repo, MQTT online có xác thực
+- [x] Cập nhật `docs/TEAM.md` (1 người) và tổng hợp `docs/ai-log.md` đầy đủ
+- [x] Đóng gói tài liệu nộp (kế hoạch, use case, thiết kế, kiểm thử, báo cáo unit test)
 
 **Done khi:**
 - ✅ Toàn bộ 10 feature 🟢 MUST đạt trong `docs/test-acceptance.md`
