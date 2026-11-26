@@ -54,7 +54,7 @@
 | Chạy backend | `cd backend` rồi `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`) |
 | Kiểm tra backend sống | mở `http://localhost:8080/actuator/health`, thấy `{"status":"UP"}` |
 | Build và chạy test backend | `cd backend` rồi `./mvnw -B verify` |
-| Chạy Android | [điền khi khởi tạo `android/`] |
+| Chạy Android | `cd web; $env:VITE_APP_MODE="mobile"; npm run build; npx cap sync android` rồi `cd ..\android; .\gradlew.bat assembleDebug` |
 | Chạy desktop JavaFX | [điền khi khởi tạo `desktop/`] |
 | Chạy mô phỏng tủ | Mở `firmware/` trong Wokwi (`diagram.json`); AI không chạy được Wokwi, tôi sẽ chạy tay |
 

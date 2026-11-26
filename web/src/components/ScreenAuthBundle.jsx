@@ -506,20 +506,24 @@ export default function ScreenAuthBundle({
           <h3 className={`text-base font-bold ${t.heading}`}>Địa chỉ máy chủ Backend API</h3>
         </div>
         <div className="flex flex-wrap gap-2">
-          {['http://localhost:8081', 'http://localhost:8080'].map((preset) => (
+          {[
+            { label: 'Demo Online (Render)', url: 'https://smart-locker-api-hy55.onrender.com' },
+            { label: 'Local (8081)', url: 'http://localhost:8081' },
+            { label: 'Android Emulator (8081)', url: 'http://10.0.2.2:8081' },
+          ].map(({ label, url }) => (
             <button
-              key={preset}
+              key={url}
               type="button"
               onClick={() => {
-                const saved = setApiBaseUrl(preset);
+                const saved = setApiBaseUrl(url);
                 setApiUrl(saved);
                 setSuccessMsg(`Đã đổi máy chủ Backend sang ${saved}`);
               }}
-              className={`min-h-[38px] px-3 py-1.5 text-xs font-mono-code font-bold cursor-pointer ${
-                apiUrl === preset ? t.primaryBtn : t.secondaryBtn
+              className={`min-h-[38px] px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                apiUrl === url ? t.primaryBtn : t.secondaryBtn
               }`}
             >
-              {preset}
+              {label}
             </button>
           ))}
         </div>

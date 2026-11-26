@@ -1,0 +1,13 @@
+{
+  "appId": "com.smartlocker.app",
+  "appName": "Smart Locker",
+  "webDir": "dist",
+  "android": {
+    "path": "../android",
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

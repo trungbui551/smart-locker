@@ -212,9 +212,9 @@
 **Đọc trước:** PRD v2 Feature 9; giao diện React ở M6
 
 **Việc cần làm:**
-- [ ] Cài Capacitor cho `web/`, sinh dự án Android (`android/`), gắn biểu tượng `logo.png` và màn hình chờ
-- [ ] Cấu hình chuyển đổi địa chỉ máy chủ (Local / Demo công khai) và khóa giao diện chỉ hiện luồng Người nhận & Shipper trên bản Mobile
-- [ ] Build file `.apk` và chạy thử trên máy ảo Android hoặc điện thoại Android thật
+- [x] Cài Capacitor cho `web/`, sinh dự án Android (`android/`), gắn biểu tượng `logo.png` và màn hình chờ
+- [x] Cấu hình chuyển đổi địa chỉ máy chủ (Local / Demo công khai) và khóa giao diện chỉ hiện luồng Người nhận & Shipper trên bản Mobile
+- [x] Build file `.apk` và chạy thử trên máy ảo Android hoặc điện thoại Android thật
 
 **Done khi:**
 - ✅ Cài và chạy ổn định trên Android, hoàn thành trọn luồng Shipper và Người nhận với tủ Wokwi
