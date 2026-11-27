@@ -47,8 +47,13 @@ import ScreenS13AuditLog from './components/ScreenS13AuditLog';
 import ScreenS14AdminUsers from './components/ScreenS14AdminUsers';
 import ScreenS15AdminLockers from './components/ScreenS15AdminLockers';
 
+// Chế độ ứng dụng: 'web' (đủ 15 màn hình), 'mobile' (Android Capacitor: S1–S9), 'desktop' (Electron: S1–S4 & S10–S15)
+const APP_MODE = import.meta.env.VITE_APP_MODE || 'web';
+const IS_MOBILE_APP = APP_MODE === 'mobile';
+const IS_DESKTOP_APP = APP_MODE === 'desktop';
+
 // Nhóm màn hình theo đúng 5 nhóm trong docs/design-spec.md (đủ 15 màn hình S1–S15 nối API thật)
-const ROLE_GROUPS = [
+const ALL_ROLE_GROUPS = [
   {
     key: 'AUTH',
     label: 'Tài khoản (S1–S4)',
@@ -101,11 +106,28 @@ const ROLE_GROUPS = [
   },
 ];
 
+// Lọc nhóm màn hình theo nền tảng: Mobile Android chỉ hiện S1–S9; Desktop Electron chỉ hiện S1–S4 & S10–S15
+const ROLE_GROUPS = IS_MOBILE_APP
+  ? ALL_ROLE_GROUPS.filter((g) => ['AUTH', 'RECIPIENT', 'COURIER'].includes(g.key))
+  : IS_DESKTOP_APP
+  ? ALL_ROLE_GROUPS.filter((g) => ['AUTH', 'OPERATOR', 'ADMIN'].includes(g.key))
+  : ALL_ROLE_GROUPS;
+
 function findGroupByScreen(screenId) {
   return ROLE_GROUPS.find((g) => g.screens.some((s) => s.id === screenId)) || ROLE_GROUPS[0];
 }
 
 function getDefaultScreenForRole(role) {
+  if (IS_MOBILE_APP) {
+    if (role === 'RECIPIENT') return 'S5';
+    if (role === 'COURIER') return 'S7';
+    return 'S4';
+  }
+  if (IS_DESKTOP_APP) {
+    if (role === 'OPERATOR') return 'S10';
+    if (role === 'ADMIN') return 'S14';
+    return 'S4';
+  }
   if (role === 'RECIPIENT') return 'S5';
   if (role === 'COURIER') return 'S7';
   if (role === 'OPERATOR') return 'S10';
@@ -345,7 +367,8 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-200 ${viewportMode === 'mobile' ? 'pb-6' : 'pb-20 md:pb-10'} ${theme.pageBg}`}>
-      {/* Thanh duyệt nhanh 5 nhóm vai trò + Nút xem Máy tính / Điện thoại */}
+      {/* Thanh duyệt nhanh nhóm vai trò: ẩn hẳn trên App Android để giao diện gọn như app gốc */}
+      {!IS_MOBILE_APP && (
       <div className="bg-[#0B1120] text-blue-100 border-b border-blue-950 px-4 py-2">
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -368,6 +391,7 @@ export default function App() {
             })}
           </div>
 
+          {!IS_DESKTOP_APP && (
           <div className="inline-flex rounded-lg bg-[#172554] border border-blue-900 p-0.5 self-start lg:self-auto shrink-0">
             <button
               type="button"
@@ -390,8 +414,10 @@ export default function App() {
               Điện thoại
             </button>
           </div>
+          )}
         </div>
       </div>
+      )}
 
       {/* Khung ứng dụng chính có @container */}
       <div

@@ -197,7 +197,7 @@
 **Việc cần làm:**
 - [x] Cấu hình dịch vụ hosting miễn phí (HTTPS) + PostgreSQL + MQTT broker công khai có xác thực (tắt `allow_anonymous`, đặt tiền tố topic ngẫu nhiên)
 - [x] Thiết lập đầy đủ biến môi trường (JWT, OTP, DB, MQTT, Gmail, SMS) trên hosting
-- [ ] Kiểm thử toàn bộ luồng end-to-end từ điện thoại ngoài mạng local + tủ Wokwi
+- [x] Kiểm thử toàn bộ luồng end-to-end từ điện thoại ngoài mạng local + tủ Wokwi
 
 **Done khi:**
 - ✅ Mở link HTTPS trên điện thoại (4G/Wi-Fi bất kỳ) chạy được trọn luồng chính với tủ Wokwi
@@ -212,9 +212,9 @@
 **Đọc trước:** PRD v2 Feature 9; giao diện React ở M6
 
 **Việc cần làm:**
-- [ ] Cài Capacitor cho `web/`, sinh dự án Android (`android/`), gắn biểu tượng `logo.png` và màn hình chờ
-- [ ] Cấu hình chuyển đổi địa chỉ máy chủ (Local / Demo công khai) và khóa giao diện chỉ hiện luồng Người nhận & Shipper trên bản Mobile
-- [ ] Build file `.apk` và chạy thử trên máy ảo Android hoặc điện thoại Android thật
+- [x] Cài Capacitor cho `web/`, sinh dự án Android (`android/`), gắn biểu tượng `logo.png` và màn hình chờ
+- [x] Cấu hình chuyển đổi địa chỉ máy chủ (Local / Demo công khai) và khóa giao diện chỉ hiện luồng Người nhận & Shipper trên bản Mobile
+- [x] Build file `.apk` và chạy thử trên máy ảo Android hoặc điện thoại Android thật
 
 **Done khi:**
 - ✅ Cài và chạy ổn định trên Android, hoàn thành trọn luồng Shipper và Người nhận với tủ Wokwi
@@ -229,9 +229,9 @@
 **Đọc trước:** PRD v2 Feature 10; giao diện React ở M7
 
 **Việc cần làm:**
-- [ ] Cấu hình Electron trong `desktop/` trỏ tới bản build của `web/`, gắn icon `logo.png`
-- [ ] Khóa chế độ đăng nhập bản Desktop cho 2 vai trò `OPERATOR` và `ADMIN`
-- [ ] Build và chạy thử ứng dụng Desktop trên Windows
+- [x] Cấu hình Electron trong `desktop/` trỏ tới bản build của `web/`, gắn icon `logo.png`
+- [x] Khóa chế độ đăng nhập bản Desktop cho 2 vai trò `OPERATOR` và `ADMIN`
+- [x] Build và chạy thử ứng dụng Desktop trên Windows
 
 **Done khi:**
 - ✅ Chạy ổn định như ứng dụng Windows độc lập, đồng bộ trực tiếp với Web và tủ Wokwi
@@ -246,10 +246,10 @@
 **Đọc trước:** PRD v2 toàn bộ; Tech Spec v2; `docs/ai-log.md`
 
 **Việc cần làm:**
-- [ ] Viết `docs/test-acceptance.md` theo toàn bộ "Done khi" của PRD v2 rồi kiểm thử từng mục
-- [ ] Kiểm tra an toàn: phân quyền 4 vai trò, tự đăng ký không leo thang quyền, OTP không lộ trong DB/log, không có bí mật trong repo, MQTT online có xác thực
-- [ ] Cập nhật `docs/TEAM.md` (1 người) và tổng hợp `docs/ai-log.md` đầy đủ
-- [ ] Đóng gói tài liệu nộp (kế hoạch, use case, thiết kế, kiểm thử, báo cáo unit test)
+- [x] Viết `docs/test-acceptance.md` theo toàn bộ "Done khi" của PRD v2 rồi kiểm thử từng mục
+- [x] Kiểm tra an toàn: phân quyền 4 vai trò, tự đăng ký không leo thang quyền, OTP không lộ trong DB/log, không có bí mật trong repo, MQTT online có xác thực
+- [x] Cập nhật `docs/TEAM.md` (1 người) và tổng hợp `docs/ai-log.md` đầy đủ
+- [x] Đóng gói tài liệu nộp (kế hoạch, use case, thiết kế, kiểm thử, báo cáo unit test)
 
 **Done khi:**
 - ✅ Toàn bộ 10 feature 🟢 MUST đạt trong `docs/test-acceptance.md`
